@@ -32,6 +32,7 @@ import jakarta.validation.constraints.NotEmpty;
 import org.springframework.beans.support.MutableSortDefinition;
 import org.springframework.beans.support.PropertyComparator;
 import org.springframework.core.style.ToStringCreator;
+import jakarta.validation.constraints.Size;
 
 /**
  * Simple JavaBean domain object representing an owner.
@@ -58,7 +59,7 @@ public class Owner extends Person {
     private String telephone;
     
     @Column(name = "nif")
-    @NotEmpty
+    @Size(max = 50)
     private String nif;
 
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "owner")
