@@ -49,6 +49,10 @@ public class Vet extends Person {
         inverseJoinColumns = @JoinColumn(name = "specialty_id"))
     private Set<Specialty> specialties;
 
+    @NotEmpty
+    @Column(name= "professional_license_number", nullable = false, length = 50)
+    private String professionalLicenseNumber;
+
     protected Set<Specialty> getSpecialtiesInternal() {
         if (this.specialties == null) {
             this.specialties = new HashSet<>();
@@ -73,6 +77,14 @@ public class Vet extends Person {
 
     public void addSpecialty(Specialty specialty) {
         getSpecialtiesInternal().add(specialty);
+    }
+
+    public String getProfessionalLicenseNumber(){
+        return professionalLicenseNumber;
+    }
+
+    public void setProfessionalLicenseNumber(String professionalLicenseNumber){
+        this.professionalLicenseNumber = getProfessionalLicenseNumber;
     }
 
 }
