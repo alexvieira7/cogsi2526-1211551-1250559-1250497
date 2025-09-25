@@ -17,7 +17,7 @@ package org.springframework.samples.petclinic.model;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
-
+.....
 /**
  * @author Juergen Hoeller
  *         Can be Cat, Dog, Hamster...
