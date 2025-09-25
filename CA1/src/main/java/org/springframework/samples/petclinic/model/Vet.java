@@ -86,7 +86,7 @@ public class Vet extends Person {
     }
 
     public void setProfessionalLicenseNumber(String professionalLicenseNumber){
-        this.professionalLicenseNumber = getProfessionalLicenseNumber;
+        this.professionalLicenseNumber = professionalLicenseNumber;
     }
 
 }
