@@ -52,7 +52,7 @@ public class Vet extends Person {
     private Set<Specialty> specialties;
 
     @NotEmpty
-    @Column(name= "professional_license_number", nullable = false, length = 50)
+    @Column(name= "professionalLicenseNumber", nullable = false, length = 50)
     private String professionalLicenseNumber;
 
     protected Set<Specialty> getSpecialtiesInternal() {
