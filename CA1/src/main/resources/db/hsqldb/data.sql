@@ -1,9 +1,9 @@
-INSERT INTO vets VALUES (1, 'James', 'Carter','1234324324', 'teste@email.com');
-INSERT INTO vets VALUES (2, 'Helen', 'Leary', '2933913232', 'teste@email');
-INSERT INTO vets VALUES (3, 'Linda', 'Douglas', '18232329392', 'teste@email');
-INSERT INTO vets VALUES (4, 'Rafael', 'Ortega', '823828319232', 'teste@email');
-INSERT INTO vets VALUES (5, 'Henry', 'Stevens', '2332323', 'teste@email');
-INSERT INTO vets VALUES (6, 'Sharon', 'Jenkins', '283828833', 'teste@email');
+INSERT INTO vets VALUES (1, 'James', 'Carter','1234324324');
+INSERT INTO vets VALUES (2, 'Helen', 'Leary', '2933913232');
+INSERT INTO vets VALUES (3, 'Linda', 'Douglas', '18232329392');
+INSERT INTO vets VALUES (4, 'Rafael', 'Ortega', '823828319232');
+INSERT INTO vets VALUES (5, 'Henry', 'Stevens', '2332323');
+INSERT INTO vets VALUES (6, 'Sharon', 'Jenkins', '283828833');
 
 INSERT INTO specialties VALUES (1, 'radiology');
 INSERT INTO specialties VALUES (2, 'surgery');
