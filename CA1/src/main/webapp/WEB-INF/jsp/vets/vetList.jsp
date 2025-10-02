@@ -12,6 +12,7 @@
             <thead>
             <tr>
                 <th scope="col">Name</th>
+                <th scope="col">License</th>
                 <th scope="col">Specialties</th>
             </tr>
             </thead>
@@ -21,6 +22,11 @@
                     <td>
                         <c:out value="${vet.firstName} ${vet.lastName}"/>
                     </td>
+
+                    <td>
+                        <c:out value="${vet.professionalLicenseNumber}"/>
+                    </td>
+
                     <td>
                         <c:forEach var="specialty" items="${vet.specialties}">
                             <c:out value="${specialty.name} "/>
