@@ -171,9 +171,9 @@ git push origin main --tags
 
 ---
 
-## 6. Alternatives to Git and GitHub
+## 6. Alternatives to Git
 
-This section analyzes **alternative tools** to Git and GitHub, discussing their **models**, **advantages** and **limitations**.
+This section analyzes **alternative tools** to Git, discussing their **models**, **advantages** and **limitations**.
 
 ---
 
@@ -187,3 +187,243 @@ This section analyzes **alternative tools** to Git and GitHub, discussing their 
 
 > **Summary:**
 > Git remains the most flexible and widely supported system, while **Mercurial** offers simplicity and **SVN** is suitable for corporate environments requiring centralized control.
+
+## 7. Alternative Tool - Mercurial
+
+### 7.1 Configure Mercurial
+
+Check that Mercurial is installed and set up your global identity:
+
+```bash
+hg --version
+hg config --edit
+```
+
+Add or edit your configuration file (`~/.hgrc` or `Mercurial.ini` on Windows):
+
+```ini
+[ui]
+username = Student Name <email@domain.com>
+editor = nano
+```
+
+---
+
+### 7.2 Get the Base Repository
+
+You can either **start fresh** or **clone directly from GitHub** (if you have `hg-git` enabled).
+
+#### Option A — Start fresh (recommended for CA1)
+
+```bash
+git clone https://github.com/spring-projects/spring-petclinic.git
+cd spring-petclinic
+rm -rf .git
+```
+
+Now you have the project files without any Git metadata.
+
+#### Option B — Clone directly using Mercurial (requires `hg-git`)
+
+1. Enable the extension in your configuration:
+
+   ```ini
+   [extensions]
+   hggit =
+   ```
+2. Clone the repository:
+
+   ```bash
+   hg clone git+https://github.com/spring-projects/spring-petclinic.git
+   cd spring-petclinic
+   ```
+
+---
+
+### 7.3 Initialize the CA1 Repository
+
+```bash
+mkdir -p CA1
+mv * CA1/
+cd CA1
+
+hg init
+hg addremove
+hg commit -m "Initial commit for CA1 - Spring Petclinic"
+```
+
+(Optional) Set up a remote repository in `.hg/hgrc`:
+
+```ini
+[paths]
+default = https://<your-username>@<your-hg-server>/cogsi2526-ca1
+```
+
+Push (if a remote exists):
+
+```bash
+hg push
+```
+
+---
+
+## 8. Part 1 — Development **without branches**
+
+All work is done on the default branch.
+
+### 8.1 Create an initial tag (version 1.1.0)
+
+```bash
+hg tag v1.1.0
+hg push
+```
+
+---
+
+### 8.2 Add new feature: `professionalLicenseNumber` field
+
+Edit the `Vet.java` class:
+
+```java
+private String professionalLicenseNumber;
+```
+
+Add the getter, setter, and update relevant templates.
+
+Run and test:
+
+```bash
+./mvnw -DskipTests jetty:run-war
+# or
+./mvnw spring-boot:run
+```
+
+Commit your work:
+
+```bash
+hg addremove
+hg commit -m "Add professionalLicenseNumber field to Vet entity"
+hg tag v1.2.0
+hg push
+```
+
+---
+
+### 8.3 Explore commit history
+
+```bash
+hg log
+hg log -G     # Graph view
+hg log -l 10 -T "{rev}:{node|short} {author|person} {date|age} {desc|firstline}\n"
+```
+
+---
+
+### 8.4 Revert changes
+
+* Revert files to a previous revision:
+
+  ```bash
+  hg revert -r <rev> <file>
+  ```
+* Create a new commit that undoes a previous one:
+
+  ```bash
+  hg backout <rev>
+  hg commit -m "Backout of revision <rev>"
+  ```
+
+---
+
+### 8.5 Final tag for Part 1
+
+```bash
+hg tag ca1-part1
+hg push
+```
+
+---
+
+## 9. Part 2 — Development **with branches (bookmarks)**
+
+> In Mercurial, you can use:
+>
+> * **Named branches**: permanent and stored in history
+> * **Bookmarks**: lightweight, similar to Git branches
+>   For this project, we’ll use **bookmarks**.
+
+---
+
+### 9.1 Create a new feature bookmark `email-field`
+
+```bash
+hg bookmark email-field
+hg update email-field
+```
+
+Add a new `email` field to `Vet.java`, update templates, then commit:
+
+```bash
+hg addremove
+hg commit -m "Add email field to Vet entity"
+hg push
+```
+
+---
+
+### 9.2 Merge the bookmark into `default`
+
+```bash
+hg update default
+hg merge email-field
+hg commit -m "Merge email-field into default"
+hg tag v1.3.0
+hg push
+```
+
+---
+
+### 9.3 Simulate and resolve conflicts
+
+```bash
+hg bookmark conflicting-edit
+hg update conflicting-edit
+# Edit the same lines as before to create a conflict
+hg commit -m "Conflicting change on Vet entity"
+
+# Merge back into default
+hg update default
+hg merge conflicting-edit
+
+# List conflicts
+hg resolve -l
+
+# Manually edit and mark as resolved
+hg resolve -m path/to/conflicted/file.java
+
+# Finalize merge
+hg commit -m "Resolve merge conflict between email-field and conflicting-edit"
+hg push
+```
+
+---
+
+### 9.4 View repository and bookmarks
+
+```bash
+hg bookmarks      # List bookmarks (like Git branches)
+hg paths          # Show remote repositories
+hg incoming       # See what’s coming from remote
+hg outgoing       # See what’s going to remote
+```
+
+---
+
+### 9.5 Final tag for Part 2
+
+```bash
+hg tag ca1-part2
+hg push
+```
+
+---
