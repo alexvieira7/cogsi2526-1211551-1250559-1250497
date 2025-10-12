@@ -14,6 +14,14 @@ application{
     mainClass = 'basic_demo.App'
 }
 
+tasks.register('runServer', JavaExec) {
+    group = 'application'
+    description = 'Run the Chat Server'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'basic_demo.ChatServerApp'
+    args = ['59001']
+}
+
 description = "A trivial Gradle build"
 version = "0.1.0"
 
