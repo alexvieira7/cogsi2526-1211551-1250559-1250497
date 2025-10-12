@@ -29,6 +29,15 @@ tasks.register('backupSources', Copy) {
     into("$buildDir/backup/src")
 }
 
+tasks.register('zipBackup', Zip) {
+    group = 'backup'
+    description = 'Zip source Backup'
+    dependsOn('backupSources')
+    from("$buildDir/backup")
+    archiveFileName = 'backup.zip'
+    destinationDirectory = file("$buildDir")
+}
+
 
 description = "A trivial Gradle build"
 version = "0.1.0"
