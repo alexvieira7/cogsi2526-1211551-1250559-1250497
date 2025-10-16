@@ -62,3 +62,32 @@ tasks.register('runFromDist') {
     }
 }
 
+tasks.register('javadocZip', Zip) {
+    group = 'documentation'
+    description = 'Gera Javadoc e empacota em ZIP'
+    dependsOn tasks.named('javadoc')
+    from(tasks.named('javadoc').map { it.destinationDir })
+    archiveBaseName.set("${project.name}-javadoc")
+    destinationDirectory.set(layout.buildDirectory.dir("docs"))
+}
+
+tasks.register('copyApp', Copy) {
+    dependsOn tasks.named('bootJar')
+    from(tasks.named('bootJar').flatMap { it.archiveFile })
+    into(deployDir)
+}
+
+tasks.register('copyRuntimeLibs', Copy) {
+    from(configurations.runtimeClasspath)
+    into(libsDir)
+    include('**/*.jar')
+}
+
+tasks.register('copyConfigs', Copy) {
+    from('src/main/resources') { include '*.properties' }
+    into(deployDir)
+    filter(ReplaceTokens, tokens: [
+        version  : project.version.toString(),
+        timestamp: new Date().format("yyyy-MM-dd'T'HH:mm:ss")
+    ])
+}
