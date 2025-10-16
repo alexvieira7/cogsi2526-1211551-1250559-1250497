@@ -36,12 +36,29 @@ tasks.register('deletePasta',delete)
 {
     delete(deployDir)
 }
+
 tasks.register('deployToDev') {
     group = 'deployment'
     description = 'Prepara pasta de deployment'
     dependsOn 'deletePasta',
     doLast {
         println "Deployment preparado em: ${deployDir.get().asFile}"
+    }
+}
+
+tasks.register('runFromDist') {
+    group = 'application'
+    description = 'Instala a distribuição e executa a app a partir dos scripts gerados'
+    dependsOn tasks.named('installDist')
+    doLast {
+        def base = file("$buildDir/install/${project.name}/bin")
+        def isWindows = System.getProperty('os.name').toLowerCase().contains('win')
+        def script = isWindows ? new File(base, "${project.name}.bat")
+                               : new File(base, "${project.name}")
+        if (!isWindows) script.setExecutable(true)
+        println "A executar: ${script}"
+        def p = new ProcessBuilder(script.absolutePath).inheritIO().start()
+        p.waitFor()
     }
 }
 
