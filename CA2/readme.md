@@ -300,7 +300,9 @@ To automate deployment preparation, several related tasks were defined:
 - **`deployToDev`** – a parent task that depends on the previous ones and prints the deployment location.
 
 Example excerpt:
+
 ![13.png](image/13.png)
+
 ![14.png](image/14.png)
 
 To execute:
@@ -386,6 +388,7 @@ This file defines the main build lifecycle and the automation flow:
     <mkdir dir="${classes.dir}"/>
     <javac srcdir="${src.dir}" destdir="${classes.dir}" includeantruntime="false"
            source="17" target="17" encoding="UTF-8">
+      <compilerarg value="-parameters"/>
       <classpath>
         <fileset dir="${lib.dir}">
           <include name="**/*.jar"/>
