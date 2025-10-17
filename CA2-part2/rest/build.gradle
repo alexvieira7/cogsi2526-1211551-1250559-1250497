@@ -32,7 +32,7 @@ tasks.withType(Javadoc) {
     options.encoding = 'UTF-8'
 }
 
-tasks.register('deletePasta',delete)
+tasks.register('deletePasta',Delete)
 {
     delete(deployDir)
 }
@@ -90,4 +90,32 @@ tasks.register('copyConfigs', Copy) {
         version  : project.version.toString(),
         timestamp: new Date().format("yyyy-MM-dd'T'HH:mm:ss")
     ])
+}
+
+sourceSets {
+    integrationTest {
+        java {
+            srcDir file('src/integrationTest/java')
+        }
+        resources.srcDir file('src/integrationTest/resources')
+        compileClasspath += sourceSets.main.output + configurations.testRuntimeClasspath
+        runtimeClasspath += output + compileClasspath
+    }
+}
+configurations {
+    integrationTestImplementation.extendsFrom testImplementation
+    integrationTestRuntimeOnly.extendsFrom testRuntimeOnly
+}
+
+tasks.register('integrationTest', Test) {
+    group = 'verification'
+    description = 'Run integration test.'
+    testClassesDirs = sourceSets.integrationTest.output.classesDirs
+    classpath = sourceSets.integrationTest.runtimeClasspath
+    shouldRunAfter test
+    useJUnitPlatform()
+}
+
+tasks.check {
+    dependsOn tasks.named("integrationTest")
 }
