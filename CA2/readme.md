@@ -429,6 +429,7 @@ To build and run the project using Ant + Ivy:
 ```bash
 # Remove previous builds and libraries
 rm -rf lib build
+```
 
 # Resolve dependencies via Ivy
 ![19.png](image/19.png)
@@ -439,7 +440,7 @@ rm -rf lib build
 
 # Run the Spring Boot application
 ![21.png](image/21.png)
-```
+
 
 If successful, the application starts on `http://localhost:8080`.
 
