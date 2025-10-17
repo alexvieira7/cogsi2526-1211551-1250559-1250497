@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="payroll_ant" default="run" basedir=".">
+  
+  <!-- === Directories === -->
+  <property name="src.dir" value="src/main/java"/>
+  <property name="build.dir" value="build"/>
+  <property name="classes.dir" value="${build.dir}/classes"/>
+  <property name="backup.dir" value="backup"/>
+  <property name="archive.dir" value="${build.dir}/archives"/>
+  <property name="main.class" value="payroll.PayrollApplication"/>
+
+  <!-- === Initialization === -->
+  <target name="init">
+    <mkdir dir="${classes.dir}"/>
+    <mkdir dir="${archive.dir}"/>
+  </target>
+
+  <!-- === Clean previous build === -->
+  <target name="clean">
+    <delete dir="${build.dir}"/>
+    <delete dir="${backup.dir}"/>
+  </target>
+
+  <!-- === Compile source code === -->
+  <target name="compile" depends="init">
+    <javac srcdir="${src.dir}" destdir="${classes.dir}" includeantruntime="false"/>
+  </target>
+
+  <!-- === Run the Java application === -->
+  <target name="run" depends="compile">
+    <java classname="${main.class}" classpath="${classes.dir}" fork="true"/>
+  </target>
+
+  <!-- === Backup source files === -->
+  <target name="backup">
+    <mkdir dir="${backup.dir}"/>
+    <copy todir="${backup.dir}">
+      <fileset dir="${src.dir}"/>
+    </copy>
+  </target>
+
+  <!-- === Create ZIP archive of backup === -->
+  <target name="zipBackup" depends="backup">
+    <mkdir dir="${archive.dir}"/>
+    <zip destfile="${archive.dir}/backup-${DSTAMP}.zip" basedir="${backup.dir}"/>
+  </target>
+
+  <!-- === Full workflow: clean, compile, run and zip === -->
+  <target name="buildAll" depends="clean,compile,run,zipBackup">
+    <echo message="Build completed successfully! Backup archived at ${archive.dir}"/>
+  </target>
+
+</project>
