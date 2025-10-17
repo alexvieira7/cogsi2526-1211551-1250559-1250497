@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="ca2-part1-ant" default="help" basedir="." xmlns:ivy="antlib:org.apache.ivy.ant">
+
+  <!-- ====== Propriedades ====== -->
+  <property name="src.main"        value="src/main/java"/>
+  <property name="src.resources"   value="src/main/resources"/>
+  <property name="src.test"        value="src/test/java"/>
+
+  <property name="build.dir"       value="build"/>
+  <property name="classes.dir"     value="${build.dir}/classes"/>
+  <property name="test.classes.dir" value="${build.dir}/test-classes"/>
+  <property name="lib.dir"         value="lib"/>
+  <property name="backup.dir"      value="backup"/>
+  <property name="archive.dir"     value="archive"/>
+
+  <!-- Ajusta estes nomes às tuas classes main (pelo tree, é basic_demo.*) -->
+  <property name="main.server.class" value="basic_demo.ChatServerApp"/>
+  <property name="main.client.class" value="basic_demo.ChatClientApp"/>
+
+  <!-- timestamp para ficheiros -->
+  <tstamp prefix="now">
+    <format property="date" pattern="yyyyMMdd-HHmmss"/>
+  </tstamp>
+
+  <!-- ====== Ivy (carregar antlib) ====== -->
+  <path id="ivy.lib.path">
+    <pathelement location="/usr/share/java/ivy.jar"/>
+  </path>
+  <taskdef uri="antlib:org.apache.ivy.ant"
+           resource="org/apache/ivy/ant/antlib.xml"
+           classpathref="ivy.lib.path"/>
+
+  <!-- ====== Help ====== -->
+  <target name="help">
+    <echo><![CDATA[
+Targets principais:
+  ant resolve               -> descarrega dependências para lib/
+  ant compile               -> compila código da app (copia resources antes)
+  ant runServer -Dport=8080 -> arranca o servidor (porta opcional)
+  ant runClient  -Dhost=localhost -Dport=8080 -> arranca o cliente
+  ant test                  -> corre testes JUnit 5
+  ant backup                -> copia src/ para backup/src-<data>/
+  ant zipBackup             -> cria archive/backup-<data>.zip do último backup
+  ant javadocZip            -> gera javadoc e cria ZIP em build/docs/javadoc-<data>.zip
+  ant clean                 -> limpa build/
+]]></echo>
+  </target>
+
+  <!-- ====== Resolve deps ====== -->
+  <target name="resolve">
+    <mkdir dir="${lib.dir}"/>
+    <ivy:resolve/>
+    <ivy:retrieve pattern="${lib.dir}/[artifact]-[revision].[ext]"/>
+  </target>
+
+  <!-- ====== Clean ====== -->
+  <target name="clean">
+    <delete dir="${build.dir}"/>
+  </target>
+
+  <!-- ====== Classpaths ====== -->
+  <path id="compile.classpath">
+    <fileset dir="${lib.dir}">
+      <include name="**/*.jar"/>
+    </fileset>
+  </path>
+
+  <path id="test.classpath">
+    <pathelement path="${classes.dir}"/>
+    <fileset dir="${lib.dir}">
+      <include name="**/*.jar"/>
+    </fileset>
+  </path>
+
+  <!-- ====== Copiar resources (ex.: log4j2.xml) ====== -->
+  <target name="processResources">
+    <mkdir dir="${classes.dir}"/>
+    <copy todir="${classes.dir}">
+      <fileset dir="${src.resources}"/>
+    </copy>
+  </target>
+
+  <!-- ====== Compilação ====== -->
+  <target name="compile" depends="resolve,processResources">
+    <mkdir dir="${classes.dir}"/>
+    <javac srcdir="${src.main}"
+           destdir="${classes.dir}"
+           includeantruntime="false"
+           source="17" target="17" encoding="UTF-8">
+      <compilerarg value="-parameters"/>
+      <classpath refid="compile.classpath"/>
+    </javac>
+  </target>
+
+  <!-- ====== Run Server ====== -->
+  <target name="runServer" depends="compile" description="Executa o servidor">
+    <property name="port" value="8080"/>
+    <java classname="${main.server.class}" fork="true" failonerror="true">
+      <classpath>
+        <pathelement path="${classes.dir}"/>
+        <path refid="compile.classpath"/>
+      </classpath>
+      <arg value="${port}"/>
+    </java>
+  </target>
+
+  <!-- ====== Run Client ====== -->
+  <target name="runClient" depends="compile" description="Executa o cliente">
+    <property name="host" value="localhost"/>
+    <property name="port" value="8080"/>
+    <java classname="${main.client.class}" fork="true" failonerror="true">
+      <classpath>
+        <pathelement path="${classes.dir}"/>
+        <path refid="compile.classpath"/>
+      </classpath>
+      <arg value="${host}"/>
+      <arg value="${port}"/>
+    </java>
+  </target>
+
+  <!-- ====== Testes (JUnit 5 com junitlauncher) ====== -->
+  <target name="compileTests" depends="compile">
+    <mkdir dir="${test.classes.dir}"/>
+    <javac srcdir="${src.test}"
+           destdir="${test.classes.dir}"
+           includeantruntime="false"
+           source="17" target="17" encoding="UTF-8">
+      <compilerarg value="-parameters"/>
+      <classpath refid="test.classpath"/>
+    </javac>
+  </target>
+
+  <target name="test" depends="compileTests">
+    <junitlauncher printSummary="true">
+      <classpath refid="test.classpath"/>
+      <testclasses outputdir="${build.dir}/test-reports">
+        <fileset dir="${test.classes.dir}"/>
+      </testclasses>
+    </junitlauncher>
+    <echo>Test reports em: ${build.dir}/test-reports</echo>
+  </target>
+
+  <!-- ====== Backup src/ ====== -->
+  <target name="backup">
+    <mkdir dir="${backup.dir}/src-${now.date}"/>
+    <copy todir="${backup.dir}/src-${now.date}">
+      <fileset dir="src"/>
+    </copy>
+    <echo>Backup criado em: ${backup.dir}/src-${now.date}</echo>
+  </target>
+
+  <!-- ====== ZIP do backup ====== -->
+  <target name="zipBackup" depends="backup">
+    <mkdir dir="${archive.dir}"/>
+    <zip destfile="${archive.dir}/backup-${now.date}.zip">
+      <zipfileset dir="${backup.dir}/src-${now.date}" prefix="src"/>
+    </zip>
+    <echo>ZIP criado em: ${archive.dir}/backup-${now.date}.zip</echo>
+  </target>
+
+  <!-- ====== Javadoc + ZIP ====== -->
+  <target name="javadocZip" depends="compile">
+    <mkdir dir="${build.dir}/docs/api"/>
+    <javadoc destdir="${build.dir}/docs/api"
+             source="17" encoding="UTF-8" failonerror="false">
+      <classpath refid="compile.classpath"/>
+      <fileset dir="${src.main}">
+        <include name="**/*.java"/>
+      </fileset>
+      <doctitle>API Documentation</doctitle>
+      <windowtitle>API Docs</windowtitle>
+      <link href="https://docs.oracle.com/en/java/javase/17/docs/api/"/>
+    </javadoc>
+
+    <mkdir dir="${build.dir}/docs"/>
+    <zip destfile="${build.dir}/docs/javadoc-${now.date}.zip">
+      <zipfileset dir="${build.dir}/docs/api" prefix="javadoc"/>
+    </zip>
+    <echo>Javadoc ZIP: ${build.dir}/docs/javadoc-${now.date}.zip</echo>
+  </target>
+
+</project>
