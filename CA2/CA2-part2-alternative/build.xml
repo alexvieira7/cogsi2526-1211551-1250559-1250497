@@ -1,53 +1,64 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project name="payroll_ant" default="run" basedir=".">
-  
-  <!-- === Directories === -->
+<project name="payroll_ant"
+         default="run"
+         basedir="."
+         xmlns:ivy="antlib:org.apache.ivy.ant">
+
+  <!-- Paths & props -->
   <property name="src.dir" value="src/main/java"/>
   <property name="build.dir" value="build"/>
   <property name="classes.dir" value="${build.dir}/classes"/>
-  <property name="backup.dir" value="backup"/>
-  <property name="archive.dir" value="${build.dir}/archives"/>
+  <property name="lib.dir" value="lib"/>
   <property name="main.class" value="payroll.PayrollApplication"/>
 
-  <!-- === Initialization === -->
-  <target name="init">
-    <mkdir dir="${classes.dir}"/>
-    <mkdir dir="${archive.dir}"/>
+  <!-- Ivy jars instalados no sistema -->
+  <path id="ivy.lib.path">
+    <pathelement location="/usr/share/java/ivy.jar"/>
+    <pathelement location="/usr/share/java/ivy-2.5.0.jar"/>
+  </path>
+
+  <!-- Carregar tarefas do Ivy -->
+  <taskdef uri="antlib:org.apache.ivy.ant"
+           resource="org/apache/ivy/ant/antlib.xml"
+           classpathref="ivy.lib.path"/>
+
+  <!-- Resolve dependências para lib/ -->
+  <target name="resolve">
+    <mkdir dir="${lib.dir}"/>
+    <ivy:resolve/>
+    <ivy:retrieve pattern="${lib.dir}/[artifact]-[revision].[ext]"/>
   </target>
 
-  <!-- === Clean previous build === -->
+  <!-- Limpeza -->
   <target name="clean">
     <delete dir="${build.dir}"/>
-    <delete dir="${backup.dir}"/>
   </target>
 
-  <!-- === Compile source code === -->
-  <target name="compile" depends="init">
-    <javac srcdir="${src.dir}" destdir="${classes.dir}" includeantruntime="false"/>
+  <!-- Compilação -->
+  <target name="compile" depends="resolve">
+    <mkdir dir="${classes.dir}"/>
+    <javac srcdir="${src.dir}"
+           destdir="${classes.dir}"
+           includeantruntime="false"
+           source="17" target="17" encoding="UTF-8">
+      <classpath>
+        <fileset dir="${lib.dir}">
+          <include name="**/*.jar"/>
+        </fileset>
+      </classpath>
+    </javac>
   </target>
 
-  <!-- === Run the Java application === -->
+  <!-- Execução -->
   <target name="run" depends="compile">
-    <java classname="${main.class}" classpath="${classes.dir}" fork="true"/>
-  </target>
-
-  <!-- === Backup source files === -->
-  <target name="backup">
-    <mkdir dir="${backup.dir}"/>
-    <copy todir="${backup.dir}">
-      <fileset dir="${src.dir}"/>
-    </copy>
-  </target>
-
-  <!-- === Create ZIP archive of backup === -->
-  <target name="zipBackup" depends="backup">
-    <mkdir dir="${archive.dir}"/>
-    <zip destfile="${archive.dir}/backup-${DSTAMP}.zip" basedir="${backup.dir}"/>
-  </target>
-
-  <!-- === Full workflow: clean, compile, run and zip === -->
-  <target name="buildAll" depends="clean,compile,run,zipBackup">
-    <echo message="Build completed successfully! Backup archived at ${archive.dir}"/>
+    <java classname="${main.class}" fork="true">
+      <classpath>
+        <pathelement path="${classes.dir}"/>
+        <fileset dir="${lib.dir}">
+          <include name="**/*.jar"/>
+        </fileset>
+      </classpath>
+    </java>
   </target>
 
 </project>

@@ -1,0 +1,28 @@
+<ivy-module version="2.0">
+    <info organisation="isep" module="payroll-ant"/>
+
+    <!-- 1) Declara as configurações usadas pelo projeto -->
+    <configurations>
+        <conf name="compile"  visibility="public" />
+        <conf name="runtime"  visibility="public" extends="compile"/>
+        <conf name="test"     visibility="public" extends="runtime"/>
+        <!-- default = o que os consumidores apanham por omissão -->
+        <conf name="default"  visibility="public" extends="runtime"/>
+    </configurations>
+
+    <!-- 2) Dependências mapeadas para as confs acima -->
+    <dependencies>
+        <!-- App (compilação) -->
+        <dependency org="org.springframework.boot" name="spring-boot-starter-web"     rev="3.2.5" conf="compile->default"/>
+        <dependency org="org.springframework.boot" name="spring-boot-starter-data-jpa" rev="3.2.5" conf="compile->default"/>
+        <dependency org="org.springframework.boot" name="spring-boot-starter-hateoas"  rev="3.2.5" conf="compile->default"/>
+
+        <!-- Runtime only -->
+        <dependency org="com.h2database" name="h2" rev="2.2.224" conf="runtime->default"/>
+
+        <dependency org="org.projectlombok" name="lombok" rev="1.18.30" conf="compile->default"/>
+
+        <!-- Testes -->
+        <dependency org="org.springframework.boot" name="spring-boot-starter-test" rev="3.2.5" conf="test->default"/>
+    </dependencies>
+</ivy-module>
