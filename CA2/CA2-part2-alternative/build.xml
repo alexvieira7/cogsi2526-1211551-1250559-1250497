@@ -41,6 +41,7 @@
            destdir="${classes.dir}"
            includeantruntime="false"
            source="17" target="17" encoding="UTF-8">
+      <compilerarg value="-parameters"/>
       <classpath>
         <fileset dir="${lib.dir}">
           <include name="**/*.jar"/>
