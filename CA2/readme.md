@@ -339,7 +339,99 @@ This configuration enables full separation between **unit** and **integration** 
 
 ---
 
-## Alternative Build System: Apache Ant + Ivy
+## Alternative Build System: Apache Ant + Ivy - Part 1
+
+In this alternative setup, the Gradle build system was replaced with **Apache Ant** and **Ivy** to handle compilation, dependency management, testing, and packaging.
+The objective was to reproduce the same project workflow manually using custom Ant targets.
+
+---
+
+### Build Configuration
+
+The build process is defined through two main configuration files:
+
+- **`build.xml`** — defines all Ant tasks such as compilation, running the server/client, executing tests, creating backups, and generating Javadoc.
+- **`ivy.xml`** — declares project dependencies that are automatically downloaded and stored in the `lib/` directory.
+
+#### `ivy.xml` (excerpt)
+```xml
+<dependencies>
+  <!-- Logging -->
+  <dependency org="org.apache.logging.log4j" name="log4j-api"  rev="2.21.1" conf="compile->default"/>
+  <dependency org="org.apache.logging.log4j" name="log4j-core" rev="2.21.1" conf="runtime->default"/>
+
+  <!-- JUnit 5 + ConsoleLauncher -->
+  <dependency org="org.junit.jupiter"  name="junit-jupiter"                     rev="5.10.2" conf="test->default"/>
+  <dependency org="org.junit.platform" name="junit-platform-console-standalone" rev="1.10.2" conf="test->default"/>
+</dependencies>
+```
+
+After saving these configurations, dependencies are retrieved by running:
+```bash
+ant resolve
+```
+All required JARs are downloaded automatically to the **`lib/`** directory.
+
+---
+
+### Main Ant Tasks
+
+| Task | Description |
+|------|--------------|
+| **resolve** | Downloads dependencies using Apache Ivy |
+| **compile** | Compiles all Java source files from `src/main/java` |
+| **runServer** | Runs the server (`basic_demo.ChatServerApp`) on port `8080` (configurable) |
+| **runClient** | Runs the client (`basic_demo.ChatClientApp`) connecting to the given host/port |
+| **test** | Compiles and runs **JUnit 5** tests using the ConsoleLauncher |
+| **backup** | Creates a timestamped copy of the entire `src/` directory |
+| **zipBackup** | Compresses the most recent backup into a ZIP archive inside `archive/` |
+| **javadocZip** | Generates API documentation and creates a ZIP under `build/docs/` |
+| **clean** | Deletes all compiled files and resets the `build/` directory |
+
+---
+
+### Running with Apache Ant
+
+#### 1. Compile and Run the Server
+```bash
+ant clean
+ant resolve
+ant compile
+ant runServer -Dport=8080
+```
+
+#### 2. Run the Client
+```bash
+ant runClient -Dhost=localhost -Dport=8080
+```
+
+#### 3. Execute Unit Tests
+
+![24.png](image/24.png)
+
+> The test task uses **JUnit 5’s ConsoleLauncher** (via Ivy) to automatically discover and run all test classes located under `src/test/java`.
+
+#### 4. Create Backup and Generate Documentation
+
+![23.png](image/23.png)
+
+
+
+### Outcome
+
+This **Ant + Ivy** configuration successfully reproduces the Gradle build flow by:
+
+- Automating **compilation, testing, and execution**
+- Managing dependencies entirely via **Apache Ivy**
+- Supporting **Log4j 2** for logging
+- Enabling **automated backups** and **Javadoc generation**
+- Providing a lightweight, transparent, and educational build system
+
+Overall, this setup demonstrates how **Apache Ant with Ivy** can be a powerful alternative to Gradle for small and medium Java projects, offering full control over each build step.
+
+---
+
+## Alternative Build System: Apache Ant + Ivy - Part 2
 
 ### Overview
 
