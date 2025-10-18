@@ -13,7 +13,8 @@
     <dependency org="org.apache.logging.log4j" name="log4j-api"  rev="2.21.1" conf="compile->default"/>
     <dependency org="org.apache.logging.log4j" name="log4j-core" rev="2.21.1" conf="runtime->default"/>
 
-    <!-- JUnit 5 para testes com junitlauncher -->
-    <dependency org="org.junit.jupiter" name="junit-jupiter" rev="5.10.2" conf="test->default"/>
+    <!-- JUnit 5 + ConsoleLauncher -->
+    <dependency org="org.junit.jupiter"  name="junit-jupiter"                     rev="5.10.2" conf="test->default"/>
+    <dependency org="org.junit.platform" name="junit-platform-console-standalone" rev="1.10.2" conf="test->default"/>
   </dependencies>
 </ivy-module>

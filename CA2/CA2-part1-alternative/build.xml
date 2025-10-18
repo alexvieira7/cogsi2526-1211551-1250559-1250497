@@ -2,27 +2,27 @@
 <project name="ca2-part1-ant" default="help" basedir="." xmlns:ivy="antlib:org.apache.ivy.ant">
 
   <!-- ====== Propriedades ====== -->
-  <property name="src.main"        value="src/main/java"/>
-  <property name="src.resources"   value="src/main/resources"/>
-  <property name="src.test"        value="src/test/java"/>
+  <property name="src.main"          value="src/main/java"/>
+  <property name="src.resources"     value="src/main/resources"/>
+  <property name="src.test"          value="src/test/java"/>
 
-  <property name="build.dir"       value="build"/>
-  <property name="classes.dir"     value="${build.dir}/classes"/>
-  <property name="test.classes.dir" value="${build.dir}/test-classes"/>
-  <property name="lib.dir"         value="lib"/>
-  <property name="backup.dir"      value="backup"/>
-  <property name="archive.dir"     value="archive"/>
+  <property name="build.dir"         value="build"/>
+  <property name="classes.dir"       value="${build.dir}/classes"/>
+  <property name="test.classes.dir"  value="${build.dir}/test-classes"/>
+  <property name="lib.dir"           value="lib"/>
+  <property name="backup.dir"        value="backup"/>
+  <property name="archive.dir"       value="archive"/>
 
-  <!-- Ajusta estes nomes às tuas classes main (pelo tree, é basic_demo.*) -->
+  <!-- Ajusta para as tuas classes main -->
   <property name="main.server.class" value="basic_demo.ChatServerApp"/>
   <property name="main.client.class" value="basic_demo.ChatClientApp"/>
 
-  <!-- timestamp para ficheiros -->
+  <!-- timestamp -->
   <tstamp prefix="now">
     <format property="date" pattern="yyyyMMdd-HHmmss"/>
   </tstamp>
 
-  <!-- ====== Ivy (carregar antlib) ====== -->
+  <!-- ====== Ivy (antlib) ====== -->
   <path id="ivy.lib.path">
     <pathelement location="/usr/share/java/ivy.jar"/>
   </path>
@@ -37,8 +37,8 @@ Targets principais:
   ant resolve               -> descarrega dependências para lib/
   ant compile               -> compila código da app (copia resources antes)
   ant runServer -Dport=8080 -> arranca o servidor (porta opcional)
-  ant runClient  -Dhost=localhost -Dport=8080 -> arranca o cliente
-  ant test                  -> corre testes JUnit 5
+  ant runClient -Dhost=localhost -Dport=8080 -> arranca o cliente
+  ant test                  -> corre testes JUnit 5 (ConsoleLauncher)
   ant backup                -> copia src/ para backup/src-<data>/
   ant zipBackup             -> cria archive/backup-<data>.zip do último backup
   ant javadocZip            -> gera javadoc e cria ZIP em build/docs/javadoc-<data>.zip
@@ -59,17 +59,20 @@ Targets principais:
   </target>
 
   <!-- ====== Classpaths ====== -->
-  <path id="compile.classpath">
+  <path id="libs">
     <fileset dir="${lib.dir}">
       <include name="**/*.jar"/>
     </fileset>
   </path>
 
+  <path id="compile.classpath">
+    <path refid="libs"/>
+  </path>
+
   <path id="test.classpath">
+    <pathelement path="${test.classes.dir}"/>
     <pathelement path="${classes.dir}"/>
-    <fileset dir="${lib.dir}">
-      <include name="**/*.jar"/>
-    </fileset>
+    <path refid="libs"/>
   </path>
 
   <!-- ====== Copiar resources (ex.: log4j2.xml) ====== -->
@@ -118,7 +121,7 @@ Targets principais:
     </java>
   </target>
 
-  <!-- ====== Testes (JUnit 5 com junitlauncher) ====== -->
+  <!-- ====== Testes (JUnit 5 via ConsoleLauncher) ====== -->
   <target name="compileTests" depends="compile">
     <mkdir dir="${test.classes.dir}"/>
     <javac srcdir="${src.test}"
@@ -131,13 +134,13 @@ Targets principais:
   </target>
 
   <target name="test" depends="compileTests">
-    <junitlauncher printSummary="true">
+    <java classname="org.junit.platform.console.ConsoleLauncher"
+          fork="true" failonerror="true">
       <classpath refid="test.classpath"/>
-      <testclasses outputdir="${build.dir}/test-reports">
-        <fileset dir="${test.classes.dir}"/>
-      </testclasses>
-    </junitlauncher>
-    <echo>Test reports em: ${build.dir}/test-reports</echo>
+      <arg value="--scan-classpath"/>
+      <arg value="--details=summary"/>
+      <arg value="--fail-if-no-tests"/>
+    </java>
   </target>
 
   <!-- ====== Backup src/ ====== -->
@@ -162,13 +165,12 @@ Targets principais:
   <target name="javadocZip" depends="compile">
     <mkdir dir="${build.dir}/docs/api"/>
     <javadoc destdir="${build.dir}/docs/api"
-             source="17" encoding="UTF-8" failonerror="false">
+             source="17" encoding="UTF-8" failonerror="false"
+             windowtitle="API Docs" doctitle="API Documentation">
       <classpath refid="compile.classpath"/>
       <fileset dir="${src.main}">
         <include name="**/*.java"/>
       </fileset>
-      <doctitle>API Documentation</doctitle>
-      <windowtitle>API Docs</windowtitle>
       <link href="https://docs.oracle.com/en/java/javase/17/docs/api/"/>
     </javadoc>
 
