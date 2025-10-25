@@ -1,0 +1,58 @@
+#cloud-config
+package_update: true
+packages:
+  - git
+  - openjdk-17-jdk
+  - openjdk-17-jre
+  - maven
+  - gradle
+  - netcat-openbsd
+
+write_files:
+  - path: /usr/local/bin/ca3_boot.sh
+    permissions: '0755'
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+
+      # 1) Configurações base
+      REPO_URL="https://github.com/alexvieira7/cogsi2526-1211551-1250559-1250497.git"
+      BASE=/opt/ca3
+      SPRING_DIR=$BASE/spring-rest
+      GRADLE_DIR=$BASE/gradle-demo
+      LOG_DIR=/var/log/ca3
+      sudo mkdir -p "$BASE" "$LOG_DIR" /var/h2
+      sudo chown -R ubuntu:ubuntu "$BASE" "$LOG_DIR" /var/h2
+
+      # 2) Clonar repositório se ainda não existir
+      if [ ! -d "$BASE/repo" ]; then
+        git clone --depth=1 "$REPO_URL" "$BASE/repo"
+      fi
+
+      # 3) Copiar apps da CA2
+      cp -r "$BASE/repo/CA2/CA2-part2" "$SPRING_DIR" || true
+      cp -r "$BASE/repo/CA2/CA2-part1" "$GRADLE_DIR" || true
+
+      # 4) Criar application.properties persistente
+      mkdir -p "$SPRING_DIR/src/main/resources"
+      cat > "$SPRING_DIR/src/main/resources/application.properties" <<'EOF'
+      spring.datasource.url=jdbc:h2:file:/var/h2/demo-db;DB_CLOSE_ON_EXIT=FALSE;AUTO_SERVER=TRUE
+      spring.datasource.username=sa
+      spring.datasource.password=
+      spring.h2.console.enabled=true
+      spring.jpa.hibernate.ddl-auto=update
+      server.port=8080
+      EOF
+
+      # 5) Build e execução
+      echo "[CA3] Building Spring app..."
+      (cd "$SPRING_DIR" && ./mvnw clean package || mvn clean package)
+      SPRING_JAR=$(ls "$SPRING_DIR"/target/*.jar | head -n1)
+      nohup java -jar "$SPRING_JAR" > "$LOG_DIR/spring.log" 2>&1 &
+
+      echo "[CA3] Building Gradle demo..."
+      (cd "$GRADLE_DIR" && ./gradlew build || gradle build)
+      (cd "$GRADLE_DIR" && nohup ./gradlew run > "$LOG_DIR/gradle_demo.log" 2>&1 &) || true
+
+runcmd:
+  - [ bash, /usr/local/bin/ca3_boot.sh ]
