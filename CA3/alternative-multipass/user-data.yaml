@@ -7,6 +7,9 @@ packages:
   - maven
   - gradle
   - netcat-openbsd
+  - ca-certificates
+  - unzip
+  - rsync
 
 write_files:
   - path: /usr/local/bin/ca3_boot.sh
@@ -15,44 +18,86 @@ write_files:
       #!/usr/bin/env bash
       set -euo pipefail
 
-      # 1) Configurações base
-      REPO_URL="https://github.com/alexvieira7/cogsi2526-1211551-1250559-1250497.git"
+      REPO_URL_SSH="git@github.com:alexvieira7/cogsi2526-1211551-1250559-1250497.git"
+      REPO_URL_HTTPS="https://github.com/alexvieira7/cogsi2526-1211551-1250559-1250497.git"
       BASE=/opt/ca3
-      SPRING_DIR=$BASE/spring-rest
-      GRADLE_DIR=$BASE/gradle-demo
+      APP="$BASE/repo/CA2/CA2-part2/evolution"
       LOG_DIR=/var/log/ca3
-      sudo mkdir -p "$BASE" "$LOG_DIR" /var/h2
-      sudo chown -R ubuntu:ubuntu "$BASE" "$LOG_DIR" /var/h2
+      H2_DIR=/var/h2
+      LOG_FILE="$LOG_DIR/spring.log"
+      KEYS=(/home/ubuntu/.ssh/ca3_deploy /home/ubuntu/.ssh/id_rsa /home/ubuntu/.ssh/id_ed25519)
 
-      # 2) Clonar repositório se ainda não existir
-      if [ ! -d "$BASE/repo" ]; then
-        git clone --depth=1 "$REPO_URL" "$BASE/repo"
+      sudo mkdir -p "$BASE" "$LOG_DIR" "$H2_DIR"
+      sudo chown -R ubuntu:ubuntu "$BASE" "$LOG_DIR" "$H2_DIR"
+
+      # known_hosts para github.com (evita prompt interativo)
+      sudo -u ubuntu -H bash -lc "mkdir -p ~/.ssh && chmod 700 ~/.ssh"
+      if ! sudo -u ubuntu -H bash -lc "ssh-keygen -F github.com >/dev/null"; then
+        sudo -u ubuntu -H bash -lc "ssh-keyscan github.com >> ~/.ssh/known_hosts && chmod 600 ~/.ssh/known_hosts"
       fi
 
-      # 3) Copiar apps da CA2
-      cp -r "$BASE/repo/CA2/CA2-part2" "$SPRING_DIR" || true
-      cp -r "$BASE/repo/CA2/CA2-part1" "$GRADLE_DIR" || true
+      # Clone do repositório (tenta SSH com as chaves conhecidas; se falhar, usa HTTPS)
+      if [ ! -d "$BASE/repo/.git" ]; then
+        CLONED=0
+        for K in "${KEYS[@]}"; do
+          if [ -f "$K" ]; then
+            echo "[CA3] A usar chave: $K"
+            if sudo -u ubuntu -H bash -lc "GIT_SSH_COMMAND='ssh -i $K -o StrictHostKeyChecking=accept-new' git clone --depth=1 '$REPO_URL_SSH' '$BASE/repo'"; then
+              CLONED=1
+              break
+            fi
+          fi
+        done
+        if [ "$CLONED" -eq 0 ]; then
+          echo "[CA3] SSH falhou/sem chaves. A clonar via HTTPS (read-only)..."
+          sudo -u ubuntu -H bash -lc "git clone --depth=1 '$REPO_URL_HTTPS' '$BASE/repo'" || true
+        fi
+      fi
 
-      # 4) Criar application.properties persistente
-      mkdir -p "$SPRING_DIR/src/main/resources"
-      cat > "$SPRING_DIR/src/main/resources/application.properties" <<'EOF'
+      # Se ainda não houver repo, sair sem erro (para não falhar cloud-init)
+      if [ ! -d "$BASE/repo" ]; then
+        echo "[CA3] Repo ainda indisponível. Sair sem erro."
+        exit 0
+      fi
+
+      # Garantir donos certos (evita problemas no 'clean')
+      sudo chown -R ubuntu:ubuntu "$BASE/repo"
+
+      # Parar apps antigos e limpar locks do H2
+      pkill -f "org.springframework.boot.loader.launch.Launcher" || true
+      rm -f "$H2_DIR/demo-db.lck" "$H2_DIR/demo-db.lock.db" "$H2_DIR/demo-db.mv.db.lock" || true
+
+      # application.properties persistente para H2
+      mkdir -p "$APP/src/main/resources"
+      cat > "$APP/src/main/resources/application.properties" <<'EOF'
       spring.datasource.url=jdbc:h2:file:/var/h2/demo-db;DB_CLOSE_ON_EXIT=FALSE;AUTO_SERVER=TRUE
-      spring.datasource.username=sa
+      spring.datasource.username=SA
       spring.datasource.password=
       spring.h2.console.enabled=true
       spring.jpa.hibernate.ddl-auto=update
       server.port=8080
       EOF
 
-      # 5) Build e execução
-      echo "[CA3] Building Spring app..."
-      (cd "$SPRING_DIR" && ./mvnw clean package || mvn clean package)
-      SPRING_JAR=$(ls "$SPRING_DIR"/target/*.jar | head -n1)
-      nohup java -jar "$SPRING_JAR" > "$LOG_DIR/spring.log" 2>&1 &
+      # Build limpo + arranque
+      mkdir -p "$LOG_DIR"
+      : > "$LOG_FILE"
+      if [ -x "$APP/mvnw" ]; then
+        (cd "$APP" && ./mvnw -DskipTests clean package)
+      else
+        (cd "$APP" && mvn -DskipTests clean package)
+      fi
 
-      echo "[CA3] Building Gradle demo..."
-      (cd "$GRADLE_DIR" && ./gradlew build || gradle build)
-      (cd "$GRADLE_DIR" && nohup ./gradlew run > "$LOG_DIR/gradle_demo.log" 2>&1 &) || true
+      JAR="$(ls "$APP"/target/*.jar | head -n1)"
+      echo "[CA3] A arrancar: $JAR (log: $LOG_FILE)"
+      nohup java -jar "$JAR" >> "$LOG_FILE" 2>&1 &
+
+      # Espera curta e health-check da porta 8080
+      sleep 5
+      if ss -tulpn | grep -q ":8080"; then
+        echo "[CA3] Porta 8080 a escutar."
+      else
+        echo "[CA3][ALERTA] Nada a escutar em 8080 (ver log: $LOG_FILE)"
+      fi
 
 runcmd:
   - [ bash, /usr/local/bin/ca3_boot.sh ]
