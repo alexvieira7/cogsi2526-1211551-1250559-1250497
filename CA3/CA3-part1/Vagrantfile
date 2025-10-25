@@ -1,0 +1,27 @@
+Vagrant.configure("2") do |config|
+  config.vm.box = "bento/ubuntu-20.04"
+
+  # Usa a tua chave do HOST (não é copiada para a VM)
+  config.ssh.forward_agent = true
+
+  # Rede/prática (opcional)
+  config.vm.network "private_network", ip: "192.168.56.10"
+
+  # Monta a pasta do CA3-part1 (útil p/ logs, H2, etc.)
+  config.vm.synced_folder ".", "/project"
+
+  # 1) Provision root: pacotes e utilitários
+  config.vm.provision "shell",
+    path: "provision.sh",
+    privileged: true
+
+  config.vm.provision "shell",
+  path: "setup.sh",
+  privileged: false,
+  run: "always",
+  env: {
+    "REPO_SSH" => "git@github.com:alexvieira7/cogsi2526-1211551-1250559-1250497.git",
+    "REPO_DIR" => "/home/vagrant/repo",
+    "AUTO_START" => "true"
+  }
+end
