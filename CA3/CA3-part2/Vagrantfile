@@ -1,0 +1,72 @@
+Vagrant.configure("2") do |config|
+  # Usar Ubuntu 22.04
+  config.vm.box = "ubuntu/jammy64"
+  config.ssh.forward_agent = true
+
+  # ===== DB VM =====
+  config.vm.define "db" do |db|
+    db.vm.hostname = "db"
+    db.vm.network "private_network", ip: "192.168.56.10"
+    db.vm.synced_folder ".", "/project"
+
+    # pacotes base
+    db.vm.provision "shell",
+      path: "provision.sh",
+      privileged: true
+
+    # H2 TCP como serviço systemd
+    db.vm.provision "shell", privileged: true, inline: <<-SHELL
+      set -e
+      apt-get update -y
+      apt-get install -y openjdk-17-jre wget
+      install -d -o vagrant -g vagrant /var/h2
+      if [ ! -f /usr/local/bin/h2.jar ]; then
+        wget -q -O /usr/local/bin/h2.jar https://repo1.maven.org/maven2/com/h2database/h2/2.2.224/h2-2.2.224.jar
+        chmod 644 /usr/local/bin/h2.jar
+      fi
+      cat >/etc/systemd/system/h2.service <<'EOF'
+[Unit]
+Description=H2 Database TCP Server
+After=network-online.target
+Wants=network-online.target
+[Service]
+User=vagrant
+ExecStart=/usr/bin/java -cp /usr/local/bin/h2.jar org.h2.tools.Server -tcp -tcpAllowOthers -tcpPort 9092 -baseDir /project/h2db
+Restart=always
+RestartSec=2
+[Install]
+WantedBy=multi-user.target
+EOF
+      systemctl daemon-reload
+      systemctl enable --now h2.service
+    SHELL
+  end
+
+  # ===== APP VM =====
+  config.vm.define "app" do |app|
+    app.vm.hostname = "app"
+    app.vm.network "private_network", ip: "192.168.56.11"
+    app.vm.network "forwarded_port", guest: 8080, host: 8080, auto_correct: true
+    app.vm.synced_folder ".", "/project"
+
+    # pacotes base
+    app.vm.provision "shell",
+      path: "provision.sh",
+      privileged: true
+
+    # clonar repo + arrancar projeto **CA3/CA3-part2**
+    app.vm.provision "shell",
+      path: "setup.sh",
+      privileged: false,
+      run: "always",
+      env: {
+        "REPO_SSH"   => "git@github.com:alexvieira7/cogsi2526-1211551-1250559-1250497.git",
+        "REPO_DIR"   => "/home/vagrant/repo",
+        "AUTO_START" => "true",
+        "DB_HOST"    => "192.168.56.10",
+        "DB_PORT"    => "9092",
+        "DB_PATH"    => "/project/h2db/ca3-db",
+        "APP_SUBPATH"=> "CA2/CA2-part2/rest"
+      }
+  end
+end
