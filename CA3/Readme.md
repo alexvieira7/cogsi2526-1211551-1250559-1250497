@@ -519,13 +519,6 @@ Password: (empty)
 ---
 
 
-![alt text](3.png)
-
-![alt text](4.png)
-
-
-
-
 # CA3 — Alternative Solution Using Multipass - Part 1
 
 ---
