@@ -1,6 +1,6 @@
 Vagrant.configure("2") do |config|
   # Usar Ubuntu 22.04
-  config.vm.box = "ubuntu/jammy64"
+  config.vm.box = "bento/ubuntu-20.04"
   config.ssh.forward_agent = true
 
   # ===== DB VM =====
@@ -54,7 +54,7 @@ EOF
       path: "provision.sh",
       privileged: true
 
-    # clonar repo + arrancar projeto **CA3/CA3-part2**
+    # clonar repo + arrancar projeto
     app.vm.provision "shell",
       path: "setup.sh",
       privileged: false,
