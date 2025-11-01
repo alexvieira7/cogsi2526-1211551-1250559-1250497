@@ -785,7 +785,7 @@ Example output:
 
 We’ll ensure TCP port `9092` is open so the app VM can connect:
 
-![Allowing port 9092 on the DB VM](image-2.png)
+![Allowing port 9092 on the DB VM](image/image-2.png)
 
 ---
 
@@ -889,22 +889,13 @@ Them should see the initial employee list returned as JSON:
 ## Summary
 
 While **Vagrant** provides a rich ecosystem and high configurability, it introduces greater **resource usage** and **maintenance complexity**.
-**Multipass**, on the other hand, achieves identical provisioning goals with **less overhead** and **simpler automation**, making it particularly suitable for academic and lightweight development workflows.
+**Multipass**, on the other hand, achieves identical provisioning goals with **less overhead** and **simpler automation**.
 
 This alternative Multipass-based implementation:
 
 * Reproduces **all CA3 requirements** — automation, dependency installation, repository cloning, application build, and database persistence.
 * Ensures **environment reproducibility** through declarative provisioning.
 * Offers **faster startup**, **lower resource consumption**, and **cleaner configuration management**.
-
----
-
-## Conclusion
-
-The experiment confirms that **Multipass can effectively replace Vagrant** for small-scale, automated virtualization tasks.
-It delivers the same functional outcomes — isolated, persistent, and networked environments — while simplifying configuration and improving performance.
-
-In educational and development contexts, this makes Multipass a **modern, efficient, and maintainable alternative** to traditional Vagrant-based workflows.
 
 ---
 
