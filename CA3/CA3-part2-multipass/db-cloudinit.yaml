@@ -1,0 +1,41 @@
+#cloud-config
+package_update: true
+packages:
+  - openjdk-17-jre
+  - ufw
+  - curl
+  - unzip
+  - git
+  - netcat-openbsd
+
+write_files:
+  - path: /usr/local/bin/h2-server.sh
+    owner: root:root
+    permissions: '0755'
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+      mkdir -p /project/h2db
+      chmod 777 /project/h2db
+      H2_JAR=/usr/local/lib/h2.jar
+      if [ ! -f "$H2_JAR" ]; then
+        curl -L -o "$H2_JAR" https://repo1.maven.org/maven2/com/h2database/h2/2.2.224/h2-2.2.224.jar
+      fi
+      nohup java -jar "$H2_JAR" -tcp -tcpAllowOthers -tcpPort 9092 -baseDir /project/h2db >/var/log/h2.log 2>&1 &
+
+  - path: /usr/local/bin/db-firewall.sh
+    owner: root:root
+    permissions: '0755'
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+      ufw --force reset
+      ufw default deny incoming
+      ufw default allow outgoing
+      ufw allow 22/tcp
+      # A regra 9092 “allow from APP_IP” será afinada depois, quando soubermos o IP da app.
+      ufw --force enable
+
+runcmd:
+  - [ bash, -lc, "/usr/local/bin/h2-server.sh" ]
+  - [ bash, -lc, "/usr/local/bin/db-firewall.sh" ]

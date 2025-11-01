@@ -1,0 +1,36 @@
+#cloud-config
+package_update: true
+packages:
+  - openjdk-17-jdk
+  - openjdk-17-jre
+  - maven
+  - git
+  - curl
+  - unzip
+  - netcat-openbsd
+  - ca-certificates
+
+write_files:
+  - path: /usr/local/bin/wait-for-db.sh
+    permissions: '0755'
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+      DB_HOST="${DB_HOST}"
+      DB_PORT="${DB_PORT:-9092}"
+      echo "[APP] À espera do H2 em ${DB_HOST}:${DB_PORT}…"
+      for i in $(seq 1 60); do
+        if nc -z "${DB_HOST}" "${DB_PORT}"; then
+          echo "[APP] H2 disponível."; exit 0
+        fi
+        sleep 2
+      done
+      echo "[APP] Timeout à espera do H2."; exit 1
+
+runcmd:
+  - [ bash, -lc, "cp /project/provision.sh /usr/local/bin/provision.sh && chmod +x /usr/local/bin/provision.sh" ]
+  - [ bash, -lc, "cp /project/setup.sh     /usr/local/bin/setup.sh     && chmod +x /usr/local/bin/setup.sh" ]
+  - [ bash, -lc, "echo 'APP_SUBPATH=CA3/CA3-part2'            | sudo tee -a /etc/environment >/dev/null" ]
+  - [ bash, -lc, "echo 'DB_PATH=/project/h2db/ca3-db'         | sudo tee -a /etc/environment >/dev/null" ]
+  - [ bash, -lc, "echo 'AUTO_START=true'                      | sudo tee -a /etc/environment >/dev/null" ]
+

@@ -716,3 +716,203 @@ curl http://$IP:8080/employees
   {"id":2,"name":"Frodo Baggins","role":"thief"}
 ]
 ```
+
+---
+
+# CA3 — Alternative Solution Using Multipass - Part 2
+
+The setup replicates the objectives of CA3 – Part 2, where one virtual machine hosts the Spring Boot application and another hosts the H2 database in server mode, enabling communication between them over a shared TCP connection.
+
+The document explains the configuration steps, network setup, and provisioning process for both virtual machines, while highlighting how this alternative tool compares to Vagrant in terms of ease of automation, resource management, and isolation.
+
+---
+
+## Architecture Overview
+
+* **VM `db`** — runs the H2 TCP server
+* **VM `app`** — runs the Spring Boot JAR connecting to the H2 database over TCP
+
+Each VM is isolated but networked internally by Multipass.
+
+---
+
+## Create the shared H2 data directory
+
+```bash
+mkdir -p h2data
+```
+
+This directory will be mounted into the `db` VM to persist the H2 database.
+
+![Creating h2data and launching db](image/image.png)
+
+---
+
+## Launch the database VM
+
+```bash
+multipass launch 24.04 --name db --cpus 1 --memory 1G --disk 5G --cloud-init db-cloudinit.yaml
+```
+
+*(the VM will be created and initialized automatically)*
+
+---
+
+## Mount the shared folder into the database VM
+
+```bash
+multipass mount ./h2data db:/project/h2db
+```
+
+This allows the host machine to share the `/project/h2db` directory inside the `db` VM, where the database files are stored.
+
+---
+
+## Retrieve the database IP
+
+```bash
+DB_IP=$(multipass exec db -- bash -lc "hostname -I | awk '{print \$1}'")
+echo "$DB_IP"
+```
+
+Example output:
+
+![Mounting shared folder and checking DB IP](image/image-1.png)
+
+---
+
+## Open the H2 server port on the database VM
+
+We’ll ensure TCP port `9092` is open so the app VM can connect:
+
+![Allowing port 9092 on the DB VM](image-2.png)
+
+---
+
+## Launch the application VM
+
+![Launching app VM and mounting project folder](image/image-3.png)
+
+---
+
+## Start the H2 server on the DB VM
+
+```bash
+multipass exec db -- bash -lc '
+  wget -q https://repo1.maven.org/maven2/com/h2database/h2/2.2.224/h2-2.2.224.jar -O /tmp/h2.jar
+  sudo mkdir -p /project/h2db && sudo chmod -R 777 /project/h2db
+  pkill -f org.h2.tools.Server || true
+  nohup java -cp /tmp/h2.jar org.h2.tools.Server \
+    -tcp -tcpAllowOthers -tcpPort 9092 \
+    -baseDir /project/h2db -ifNotExists \
+    > /var/log/h2-server.log 2>&1 &
+'
+```
+
+This runs the H2 server in TCP mode with data persistence.
+
+---
+
+## Start the Spring Boot application on the APP VM
+
+We create a temporary configuration file to ensure the app uses the correct H2 connection:
+
+```bash
+multipass exec app -- bash -lc "
+  sudo mkdir -p /var/log/ca3 && sudo truncate -s 0 /var/log/ca3/spring.log
+
+  cat >/tmp/override.properties <<EOF
+spring.datasource.url=jdbc:h2:tcp://$DB_IP:9092//project/h2db/ca3-db;DB_CLOSE_ON_EXIT=FALSE
+spring.datasource.username=sa
+spring.datasource.password=
+spring.datasource.driver-class-name=org.h2.Driver
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.database-platform=org.hibernate.dialect.H2Dialect
+server.port=8080
+server.address=0.0.0.0
+EOF
+
+  APP_JAR=/home/ubuntu/repo/.../CA2/CA2-part2/evolution/target/evolution-0.0.1-SNAPSHOT.jar
+
+  nohup java -jar \"\$APP_JAR\" \
+    --spring.config.location=classpath:/,file:/tmp/override.properties \
+    >> /var/log/ca3/spring.log 2>&1 &
+"
+```
+
+After a few seconds, should see in the logs:
+
+```
+Tomcat started on port 8080
+Started PayrollApplication
+```
+
+---
+
+## Test the application
+
+Get the `app` VM’s IP address:
+
+```bash
+APP_IP=$(multipass exec app -- bash -lc "hostname -I | awk '{print \$1}'")
+echo "App available at http://$APP_IP:8080"
+```
+
+Open this URL in your browser:
+
+```
+http://<APP_IP>:8080/employees
+```
+
+Them should see the initial employee list returned as JSON:
+
+![Employees endpoint working correctly](image/image-4.png)
+
+---
+
+## Comparative Analysis — Vagrant vs Multipass
+
+| **Aspect**               | **Vagrant**                                                         | **Multipass (Alternative Solution)**                                     |
+| ------------------------ | ------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| **Provisioning Model**   | Procedural — uses shell scripts defined within a `Vagrantfile`.     | Declarative — uses `cloud-init` YAML for first-boot automation.          |
+| **Base Image Source**    | Custom “boxes” (community or self-built).                           | Official Canonical Ubuntu LTS cloud images.                              |
+| **Automation Workflow**  | Requires manual `vagrant up` and provisioning reruns.               | Single `multipass launch` command executes full lifecycle automatically. |
+| **Startup Performance**  | Heavier initialization, depends on VirtualBox or provider overhead. | Lightweight VMs with near-instant startup via QEMU or Hyper-V backend.   |
+| **Resource Efficiency**  | Consumes more CPU/RAM and storage for equivalent environments.      | Minimal footprint; optimized for developer workstations.                 |
+| **Persistence Handling** | Needs explicit synced folder setup for data retention.              | Built-in persistent volumes (`/var/h2` or mounted directories).          |
+| **Networking Setup**     | Requires NAT and port forwarding configuration in Vagrantfile.      | Direct host access via automatically assigned IPs.                       |
+| **Maintenance Effort**   | Complex scripting and dependency management in `Vagrantfile`.       | Simple, human-readable YAML; easier to version and replicate.            |
+| **Use Case Fit**         | Ideal for multi-OS or multi-provider development environments.      | Best for rapid, Ubuntu-based single or dual VM setups.                   |
+
+---
+
+## Summary
+
+While **Vagrant** provides a rich ecosystem and high configurability, it introduces greater **resource usage** and **maintenance complexity**.
+**Multipass**, on the other hand, achieves identical provisioning goals with **less overhead** and **simpler automation**, making it particularly suitable for academic and lightweight development workflows.
+
+This alternative Multipass-based implementation:
+
+* Reproduces **all CA3 requirements** — automation, dependency installation, repository cloning, application build, and database persistence.
+* Ensures **environment reproducibility** through declarative provisioning.
+* Offers **faster startup**, **lower resource consumption**, and **cleaner configuration management**.
+
+---
+
+## Conclusion
+
+The experiment confirms that **Multipass can effectively replace Vagrant** for small-scale, automated virtualization tasks.
+It delivers the same functional outcomes — isolated, persistent, and networked environments — while simplifying configuration and improving performance.
+
+In educational and development contexts, this makes Multipass a **modern, efficient, and maintainable alternative** to traditional Vagrant-based workflows.
+
+---
+
+# Self-Assessment of Contributions
+
+| Membro | ID | Contribuição (%) |
+|---------|----|------------------|
+| Sofia Marques | 1250559 | 33.3% |
+| Alexandre Vieira | 1211551 | 33.3% |
+| Bárbara Silva | 1250497 | 33.3% |
+
