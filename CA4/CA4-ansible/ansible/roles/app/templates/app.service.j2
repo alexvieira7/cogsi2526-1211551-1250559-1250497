@@ -1,0 +1,21 @@
+[Unit]
+Description=Spring Boot App
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=vagrant
+WorkingDirectory=/home/vagrant/repo
+ExecStart=/usr/bin/java -jar /home/vagrant/repo/app.jar
+Restart=on-failure
+RestartSec=2
+
+Environment="SPRING_DATASOURCE_URL=jdbc:h2:tcp://192.168.56.10:9092/test;IFEXISTS=TRUE;INIT=SET SCHEMA PUBLIC"
+Environment="SPRING_DATASOURCE_USERNAME=sa"
+Environment="SPRING_DATASOURCE_PASSWORD="
+Environment="SPRING_JPA_HIBERNATE_DDL_AUTO=none"
+Environment="SPRING_SQL_INIT_MODE=never"
+Environment="SPRING_JPA_PROPERTIES_HIBERNATE_DEFAULT_SCHEMA=PUBLIC"
+
+[Install]
+WantedBy=multi-user.target

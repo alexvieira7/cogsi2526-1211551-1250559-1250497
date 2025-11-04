@@ -1,0 +1,152 @@
+---
+# 1) Pacotes de build (inclui GRADLE)
+- name: Pacotes necessários
+  become: yes
+  apt:
+    name:
+      - git
+      - openjdk-17-jdk
+      - gradle
+      - maven
+      - unzip
+      - curl
+    state: present
+    update_cache: yes
+
+# 2) Garantir diretório .ssh do vagrant
+- name: Garantir diretório .ssh do vagrant
+  file:
+    path: /home/vagrant/.ssh
+    state: directory
+    owner: vagrant
+    group: vagrant
+    mode: "0700"
+
+# 3) Adicionar github.com a known_hosts (como vagrant)
+- name: Adicionar github.com a known_hosts
+  become: false
+  known_hosts:
+    name: github.com
+    key: "{{ lookup('pipe', 'ssh-keyscan -t rsa github.com 2>/dev/null') }}"
+    path: /home/vagrant/.ssh/known_hosts
+    state: present
+
+# 4) Clonar/atualizar repo (SSH usa agent forwarding do Vagrant)
+- name: Clonar/atualizar repo
+  become: false
+  git:
+    repo: "{{ app_repo_ssh }}"
+    dest: "{{ app_repo_dir }}"
+    version: HEAD
+    update: yes
+    accept_hostkey: yes
+
+# 5) Validar subpath existe
+- name: Falhar se app_subpath não existe
+  stat:
+    path: "{{ app_repo_dir }}/{{ app_subpath }}"
+  register: app_path
+- name: Abortar se subpasta não existe
+  fail:
+    msg: "Diretório {{ app_repo_dir }}/{{ app_subpath }} não existe no repo."
+  when: not app_path.stat.exists
+
+# 6) Dar execute ao gradle wrapper (se existir)
+- name: Dar execute ao gradle wrapper (se existir)
+  file:
+    path: "{{ app_repo_dir }}/{{ app_subpath }}/gradlew"
+    mode: "0755"
+  when: lookup('ansible.builtin.fileglob', app_repo_dir ~ '/' ~ app_subpath ~ '/gradlew', errors='ignore') | length > 0
+
+# 7) Build: gradlew -> gradle -> mvn
+- name: Build da aplicação
+  args:
+    chdir: "{{ app_repo_dir }}/{{ app_subpath }}"
+    executable: /bin/bash
+  shell: |
+    set -e
+    if [ -x ./gradlew ]; then
+      ./gradlew --no-daemon clean bootJar
+    elif [ -f build.gradle ] || [ -f build.gradle.kts ]; then
+      gradle --no-daemon clean bootJar
+    elif [ -f pom.xml ]; then
+      mvn -q -DskipTests package
+    else
+      echo "Nenhum ficheiro de build encontrado (gradlew/build.gradle/pom.xml)"; exit 1
+    fi
+
+# 8) Descobrir JAR gerado (Gradle ou Maven)
+- name: Procurar JAR (Gradle)
+  find:
+    paths: "{{ app_repo_dir }}/{{ app_subpath }}/build/libs"
+    patterns: "*.jar"
+  register: gradle_jars
+  failed_when: false
+
+- name: Procurar JAR (Maven)
+  find:
+    paths: "{{ app_repo_dir }}/{{ app_subpath }}/target"
+    patterns: "*.jar"
+  register: maven_jars
+  when: gradle_jars.matched | default(0) == 0
+  failed_when: false
+
+- name: Escolher JAR final
+  set_fact:
+    app_jar: >-
+      {{ (gradle_jars.files | default([])) | map(attribute='path') | list | first
+         | default((maven_jars.files | default([])) | map(attribute='path') | list | first) }}
+
+- name: Falhar se não encontrou JAR
+  fail:
+    msg: "Não encontrei o JAR (nem em build/libs nem em target)."
+  when: app_jar is not defined or app_jar | length == 0
+
+# 9) Symlink estável para simplificar o systemd
+- name: Symlink estável para o JAR
+  file:
+    src: "{{ app_jar }}"
+    dest: "{{ app_repo_dir }}/app.jar"
+    state: link
+
+# 10) Instalar serviço systemd da app
+- name: Template do serviço systemd
+  become: yes
+  template:
+    src: app.service.j2
+    dest: /etc/systemd/system/app.service
+  notify: Restart app
+
+# 11) Abrir porta da app
+- name: Abrir porta da app
+  become: yes
+  ufw:
+    rule: allow
+    port: "{{ app_port }}"
+    proto: tcp
+
+# 12) Ativar e arrancar serviço
+- name: Ativar e arrancar app
+  become: yes
+  systemd:
+    name: app
+    enabled: yes
+    state: started
+    daemon_reload: yes
+
+# 13) Health-check (tenta /actuator/health e fallback /employees)
+- name: Health-check HTTP (Actuator)
+  uri:
+    url: "http://127.0.0.1:{{ app_port }}/actuator/health"
+    status_code: 200
+  register: hc
+  failed_when: false
+  changed_when: false
+
+- name: Health-check alternativo (/employees)
+  uri:
+    url: "http://127.0.0.1:{{ app_port }}/employees"
+    status_code: 200
+  when: hc is failed
+  failed_when: false
+  changed_when: false

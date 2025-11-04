@@ -1,0 +1,12 @@
+---
+- hosts: all
+  become: true
+  roles: [common, users, security]
+
+- hosts: db
+  become: true
+  roles: [h2]
+
+- hosts: app
+  become: true
+  roles: [app]

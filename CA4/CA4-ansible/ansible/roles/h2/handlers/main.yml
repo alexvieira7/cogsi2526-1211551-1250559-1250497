@@ -1,0 +1,6 @@
+---
+- name: Restart H2
+  systemd:
+    name: h2
+    state: restarted
+    daemon_reload: yes

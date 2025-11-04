@@ -1,0 +1,11 @@
+- name: Criar grupo developers
+  group:
+    name: developers
+    state: present
+
+- name: Criar utilizador devuser
+  user:
+    name: devuser
+    groups: developers
+    append: yes
+    create_home: yes

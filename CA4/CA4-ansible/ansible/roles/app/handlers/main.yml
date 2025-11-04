@@ -1,0 +1,6 @@
+---
+- name: Restart app
+  systemd:
+    name: app
+    state: restarted
+    daemon_reload: yes

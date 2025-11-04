@@ -1,0 +1,17 @@
+---
+- name: Update apt cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Base packages (Java, firewall, PAM pwquality, cracklib tools)
+  apt:
+    name:
+      - openjdk-17-jdk
+      - ufw
+      - libpam-pwquality         
+      - libpwquality-tools
+      - cracklib-runtime         
+      - curl
+      - unzip
+    state: present

@@ -1,0 +1,81 @@
+---
+- name: Criar diretório H2
+  file:
+    path: /opt/h2
+    state: directory
+    owner: devuser
+    group: developers
+    mode: "0770"
+
+- name: Criar diretório base de dados do H2
+  file:
+    path: "{{ db_base_dir }}"
+    state: directory
+    owner: devuser
+    group: developers
+    mode: "0770"
+
+- name: Criar subdiretório de dados do H2
+  file:
+    path: "{{ db_base_dir }}/data"
+    state: directory
+    owner: devuser
+    group: developers
+    mode: "0770"
+
+- name: Ajustar ownership recursivo do diretório de dados (tolerante a vboxsf)
+  file:
+    path: "{{ db_base_dir }}"
+    owner: devuser
+    group: developers
+    mode: "0770"
+    recurse: yes
+  register: chown_result
+  failed_when: false
+
+- name: Descarregar H2 jar (idempotente)
+  get_url:
+    url: "{{ h2_download_url }}"
+    dest: /opt/h2/h2.jar
+    mode: "0644"
+  register: h2_dl
+  retries: 3
+  delay: 3
+  until: h2_dl is succeeded
+
+- name: Instalar serviço systemd do H2
+  template:
+    src: h2.service.j2
+    dest: /etc/systemd/system/h2.service
+  notify: Restart H2
+
+- name: Permitir OpenSSH antes de ativar UFW
+  ufw:
+    rule: allow
+    name: OpenSSH
+
+- name: Permitir H2 {{ db_port }} apenas a partir da VM app
+  ufw:
+    rule: allow
+    port: "{{ db_port }}"
+    proto: tcp
+    src: "{{ app_host | default('192.168.56.11') }}"
+
+- name: Ativar UFW com política por omissão deny (incoming)
+  ufw:
+    state: enabled
+    policy: deny
+
+- name: Ativar e arrancar H2
+  systemd:
+    name: h2
+    enabled: yes
+    state: started
+    daemon_reload: yes
+
+- name: Health-check H2 (porta {{ db_port }})
+  wait_for:
+    host: "127.0.0.1"
+    port: "{{ db_port }}"
+    state: started
+    timeout: 15

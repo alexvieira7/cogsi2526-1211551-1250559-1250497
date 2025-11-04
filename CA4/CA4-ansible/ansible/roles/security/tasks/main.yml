@@ -1,0 +1,25 @@
+- name: Configurar pwquality
+  lineinfile:
+    path: /etc/security/pwquality.conf
+    regexp: '^{{ item.key }}'
+    line: '{{ item.key }} = {{ item.val }}'
+  loop:
+    - { key: minlen, val: 12 }
+    - { key: minclass, val: 3 }
+    - { key: dictcheck, val: 1 }
+    - { key: usercheck, val: 1 }
+
+- name: Impedir reutilização de 5 passwords
+  lineinfile:
+    path: /etc/pam.d/common-password
+    insertafter: '^password\s+requisite\s+pam_pwquality.so'
+    line: 'password required pam_pwhistory.so remember=5 use_authtok'
+
+- name: Bloquear após 5 falhas por 10 min
+  blockinfile:
+    path: /etc/pam.d/common-auth
+    block: |
+      auth required pam_faillock.so preauth silent deny=5 unlock_time=600
+      auth [success=1 default=bad] pam_unix.so nullok
+      auth [default=die] pam_faillock.so authfail deny=5 unlock_time=600
+      auth sufficient pam_faillock.so authsucc
