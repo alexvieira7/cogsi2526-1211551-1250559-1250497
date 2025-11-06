@@ -1,0 +1,28 @@
+---
+driver:
+  name: vagrant
+
+provisioner:
+  name: chef_zero
+
+platforms:
+  - name: ubuntu/focal64   # Ubuntu 20.04
+    driver_config:
+      network:
+        - ["forwarded_port", {guest: 8080, host: 8080}]
+        - ["forwarded_port", {guest: 9092, host: 9092}]
+
+suites:
+  - name: host1
+    run_list:
+      - recipe[spring_app::default]
+      - recipe[users::default]
+      - recipe[pam::default]
+      - recipe[healthcheck::default]
+
+  - name: host2
+    run_list:
+      - recipe[h2::default]
+      - recipe[users::default]
+      - recipe[pam::default]
+      - recipe[healthcheck::default]
