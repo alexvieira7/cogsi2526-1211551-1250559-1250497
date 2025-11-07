@@ -1,0 +1,13 @@
+# DB
+db_host: 192.168.56.10
+db_port: 9092
+db_base_dir: /project/h2db
+
+# APP
+app_host: 192.168.56.11
+app_port: 8080
+app_repo_ssh: git@github.com:alexvieira7/cogsi2526-1211551-1250559-1250497.git
+app_repo_dir: /home/vagrant/repo
+app_subpath: CA2/CA2-part2/rest
+app_branch: main
+auto_start: true

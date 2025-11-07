@@ -1,3 +1,10 @@
 ---
 h2_version: "2.2.224"
 h2_download_url: "https://repo1.maven.org/maven2/com/h2database/h2/{{ h2_version }}/h2-{{ h2_version }}.jar"
+
+db_port: 9092
+db_base_dir: /var/lib/h2
+app_host: 192.168.56.11
+
+h2_user: devuser
+h2_group: developers

@@ -33,13 +33,13 @@
 
 # 4) Clonar/atualizar repo (SSH usa agent forwarding do Vagrant)
 - name: Clonar/atualizar repo
-  become: false
   git:
     repo: "{{ app_repo_ssh }}"
     dest: "{{ app_repo_dir }}"
-    version: HEAD
-    update: yes
+    version: "{{ app_branch }}"
     accept_hostkey: yes
+    update: yes
+    force: yes
 
 # 5) Validar subpath existe
 - name: Falhar se app_subpath não existe
