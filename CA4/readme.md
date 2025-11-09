@@ -851,9 +851,7 @@ On `app` VM:
 
 ![alt text](image/35.png)
 
-```bash
-curl -v http://localhost:8080/employees
-```
+![alt text](image/image-2.png)
 
 On `db` VM:
 
@@ -861,6 +859,11 @@ On `db` VM:
 systemctl status h2
 ss -tlnp | grep 9092
 ```
+
+![alt text](image/36.png)
+
+![alt text](image/37.png)
+
 
 ## Idempotency
 
