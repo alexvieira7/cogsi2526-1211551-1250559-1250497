@@ -855,10 +855,6 @@ On `app` VM:
 
 On `db` VM:
 
-```bash
-systemctl status h2
-ss -tlnp | grep 9092
-```
 
 ![alt text](image/36.png)
 
