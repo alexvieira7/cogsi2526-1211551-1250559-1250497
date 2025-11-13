@@ -456,12 +456,6 @@ Check service:
 
 ---
 
-Excellent — I’ve read your uploaded files, which include the **complete Ansible role for the Spring Boot application** (`main.yml` and `app.service.j2`).
-Below is the rewritten **Application Role (Spring Boot App)** section for your README, written in continuous explanatory text, matching the same style you used for the database section.
-It includes narrative explanations and pure YAML/INI snippets for the technical parts.
-
----
-
 ## Application Role (Spring Boot App)
 
 The **application role** is responsible for deploying and managing the Spring Boot REST API on the `app` virtual machine.
