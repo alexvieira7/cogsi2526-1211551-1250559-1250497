@@ -244,7 +244,158 @@ Meaning the Docker container’s server is fully functional.
 
 ---
 
-# CA5 Part 1 - Alternative Tool: LXD
+# Spring Boot REST API with Docker
+
+## Overview
+
+The objective of this part is to containerize the Spring Boot REST API developed previously using **three different Docker approaches**:
+
+1. **Version 1 – Build inside the container (Gradle image)**
+2. **Version 2 – Host-built JAR + minimal runtime image**
+3. **Version 3 – Multi-stage build (recommended)**
+
+Each version demonstrates a different Docker containerization strategy, from simple development builds to optimized production-ready images.
+
+---
+
+# Application Structure
+
+This Spring Boot REST application is located at:
+
+```
+CA5/part1/CA2-part2/rest
+```
+
+It contains:
+
+* `build.gradle`
+* `src/main/...`
+* `build/libs/rest-0.0.1-SNAPSHOT.jar`
+* Three Dockerfiles:
+
+  * `dockerfile-spring-app` (v1)
+  * `dockerfile-spring` (v2)
+  * `dockerfile-multi-stage` (v3)
+
+---
+
+# Version 1 – Build inside container (Gradle Image)
+
+### Dockerfile: `dockerfile-spring-app`
+
+This version uses a **Gradle + JDK image** and builds the project *inside* the container.
+
+![16.png](image/16.png)
+
+### Build & Run
+
+![17.png](image/17.png)
+
+![alt text](image/18.png)
+
+![alt text](image/19.png)
+
+
+### Pros / Cons
+
+| Pros                         | Cons                                                 |
+| ---------------------------- | ---------------------------------------------------- |
+| Very easy setup              | Image is large (includes Gradle + JDK + source code) |
+| Good for development         | Slow build time                                      |
+| No need to build JAR on host | Not production friendly                              |
+
+---
+
+# Version 2 – Host-built JAR + minimal runtime
+
+### Dockerfile: `dockerfile-spring`
+
+This version uses a **JRE-only image** and copies the JAR previously built on the host.
+
+![20.png](image/20.png)
+
+### Build & Run
+
+Build the JAR first:
+
+![alt text](image/21.png)
+
+Then build the image:
+
+![alt text](image/22.png)
+
+![alt text](image/23.png)
+
+### Pros / Cons
+
+| Pros                      | Cons                          |
+| ------------------------- | ----------------------------- |
+| Much smaller image        | Requires building JAR on host |
+| Faster startup            | More manual steps             |
+| Only contains runtime JRE | Less automated                |
+
+---
+
+# Version 3 – Multi-stage Build (Optimized)
+
+### Dockerfile: `dockerfile-multi-stage`
+
+This method builds the JAR in one stage and copies only the final artifact to a minimal image.
+
+![alt text](image/24.png)
+
+### Build & Run
+
+![25.png](image/25.png)
+
+![26.png](image/26.png)
+
+### Pros / Cons
+
+| Pros                          | Cons                                      |
+| ----------------------------- | ----------------------------------------- |
+| Smallest and fastest image | Slightly more complex Dockerfile          |
+| Production-ready              | Requires understanding multi-stage builds |
+| No Gradle/JDK in final image  | —                                         |
+| Cleanest & safest approach    | —                                         |
+
+---
+
+# Comparison Summary
+
+| Version | Build Method           | Image Size | Speed     | Recommended For      |
+| ------- | ---------------------- | ---------- | --------- | -------------------- |
+| **v1**  | Build inside container | Largest  | Slowest | Development, testing |
+| **v2**  | Build on host          | Medium  | Faster | Simpler workflows    |
+| **v3**  | Multi-stage            | Smallest | Fastest | **Production**       |
+
+---
+
+# Testing the API
+
+After running any version:
+
+```bash
+curl http://localhost:8080/employees
+```
+
+Or open in browser:
+
+![alt text](image/27.png)
+
+---
+
+# Conclusion
+
+This part of CA5 demonstrates different Dockerization techniques for a Spring Boot REST API, increasing in optimization and efficiency:
+
+* **v1** – simple, functional, but heavy
+* **v2** – more efficient, relies on host build
+* **v3** – best practice using multi-stage builds
+
+---
+
+# Alternative Tool: LXD - Part 1
 
 This document describes the alternative approach to containerization using **LXD** instead of Docker, as required by the CA5 project.  
 While the original part of CA5 uses Docker (Dockerfile.v1, v2, etc.), this alternative demonstrates how the same applications can be isolated, built, and executed using LXD system containers.  
