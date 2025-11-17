@@ -1,0 +1,17 @@
+# Dockerfile.v1 - Chat server (build + run dentro do container)
+
+FROM gradle:8.9-jdk17
+
+WORKDIR /app
+
+# Copiar projeto
+COPY . .
+
+# Fazer build e gerar o installDist
+RUN ./gradlew installDist
+
+# Expor a porta do servidor
+EXPOSE 59001
+
+# Arrancar o ChatServerApp com a porta 59001
+CMD ["java", "-cp", "build/install/basic_demo/lib/*", "basic_demo.ChatServerApp", "59001"]
