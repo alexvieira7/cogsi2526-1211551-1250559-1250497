@@ -244,3 +244,176 @@ Meaning the Docker container’s server is fully functional.
 
 ---
 
+# CA5 Part 1 - Alternative Tool: LXD
+
+This document describes the alternative approach to containerization using **LXD** instead of Docker, as required by the CA5 project.  
+While the original part of CA5 uses Docker (Dockerfile.v1, v2, etc.), this alternative demonstrates how the same applications can be isolated, built, and executed using LXD system containers.  
+The alternative includes two applications:
+
+- **Chat Application** (Gradle, Java)
+- **REST API – Payroll Example** (Spring Boot)
+
+The goal is to reproduce the behaviour previously implemented with Docker, but using the LXD technology stack, showing understanding of containerization concepts beyond Docker.
+
+# 1. Introduction: Why LXD as an alternative?
+
+LXD is a system container manager, closer to a lightweight virtual machine, unlike Docker which uses application-level containers. LXD provides:
+
+- Full Linux system per container (with its own init, networking, filesystem)
+- Better isolation than Docker's namespace-only approach
+- Built-in high-level tools (`lxc exec`, `lxc file push`, profiles, storage pools)
+- Natural support for multi-service environments without Docker compose
+- More visibility and control over the OS environment
+
+Compared with Docker:
+
+| Feature | Docker | LXD |
+|--------|--------|------|
+| Container type | Application-level | System-level |
+| OS inside container | Minimal | Full OS image (Ubuntu, Alpine, etc.) |
+| Build system | Dockerfile | Manual commands or scripts |
+| Networking | Bridges + port mappings | Bridges, NIC types, routed mode |
+| Use case | Microservices | Lightweight VMs, full-service environments |
+
+This makes LXD a good pedagogical alternative to show containerization without relying solely on Docker.
+
+---
+
+# 2. Preparing the Environment (WSL + LXD)
+
+LXD was installed in the WSL Ubuntu environment using:
+
+```bash
+sudo snap install lxd
+sudo lxd init
+```
+
+These commands will:
+
+Install the LXD container manager using Snap
+
+Launch the guided initialization wizard (lxd init)
+
+Set up the default storage pool, bridge network, and security settings
+
+![10.png](image/10.png)
+
+---
+
+# 3. Creating the Two Required Containers
+
+Two containers were launched: one for the chat server, and one for the REST API.
+
+```bash
+lxc launch ubuntu:22.04 chat-app
+lxc launch ubuntu:22.04 rest-app
+```
+
+---
+
+# 4. Copying the Project Into the Containers
+
+Since the GitHub repository is private and cannot be cloned via SSH inside LXD,  
+the approach used was:
+
+1. Clone repository on host (WSL)
+2. Copy repository to each container using `lxc file push`
+
+Example:
+
+```bash
+lxc exec chat-app -- mkdir -p /root/repo
+lxc file push -r cogsi2526-1211551-1250559-1250497/chat-app/root/repo/
+```
+The same structure was copied to `rest-app`.
+
+---
+
+# 5. Installing Dependencies Inside Each Container
+
+Both applications use Java and Gradle.  
+Inside each container:
+
+```bash
+apt install -y openjdk-17-jdk git gradle
+```
+
+---
+
+# 6. Building the Chat Application (Inside LXD)
+
+Inside the chat-app container:
+
+![11.png](image/11.png)
+
+This mirrors exactly the Docker build (Dockerfile.v1),  
+but executed directly inside an LXD system container instead of a Docker image layer.
+
+---
+
+# 7. Running the Chat Application in LXD
+
+The chat server was started using:
+
+```bash
+lxc exec chat-app -- bash -c "cd /root/repo/.../build/install/basic_demo/lib && java -cp '*' basic_demo.ChatServerApp 59001"
+```
+
+Expected output: The chat server is running...
+
+Then, from WSL, a connection was tested using netcat: 
+
+```bash
+nc <chat-app-IP> 59001
+```
+![12.png](image/12.png)
+
+Where `<chat-app-IP>` was obtained from:
+When connecting, the server requested a username (SUBMITNAME).
+After submitting a username and sending a chat message, the expected interaction was:
+
+![13.png](image/13.png)
+
+---
+
+# 8. Building the REST API (Inside LXD)
+
+Inside rest-app:
+
+```bash
+cd /root/repo/.../CA2/CA2-part2/rest
+./gradlew build
+```
+
+This builds the Spring Boot JAR under:
+
+```bash
+build/libs/rest-0.0.1-SNAPSHOT.jar
+```
+
+![14.png](image/14.png)
+
+---
+
+# 9. Running the REST API in LXD
+
+The Spring Boot server was started with:
+
+```bash
+lxc exec rest-app -- bash -c "cd /root/repo/.../rest/build/libs && java -jar rest-0.0.1-SNAPSHOT.jar"
+```
+
+Expected output:
+
+- Tomcat started on port 8080
+- JPA/H2 database initialized
+- Demo employees loaded
+
+Testing from host:
+
+```bash
+curl http://<rest-app-IP>:8080/employees
+```
+
+![15.png](image/15.png)
+
