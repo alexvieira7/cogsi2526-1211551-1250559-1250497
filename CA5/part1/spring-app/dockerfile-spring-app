@@ -1,0 +1,17 @@
+# Version 1 – build the Spring app inside the container
+
+FROM gradle:8.9-jdk17
+
+WORKDIR /app
+
+# Copy the whole Gradle Spring project
+COPY . .
+
+# Build the fat JAR (Spring Boot)
+RUN ./gradlew bootJar
+
+# Spring Boot default port
+EXPOSE 8080
+
+# Replace myapp-0.0.1-SNAPSHOT.jar with your real JAR name
+CMD ["java", "-jar", "build/libs/rest-0.0.1-SNAPSHOT.jar"]
