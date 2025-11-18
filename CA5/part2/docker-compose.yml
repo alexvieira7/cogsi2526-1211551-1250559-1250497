@@ -7,7 +7,7 @@ services:
       dockerfile: Dockerfile
     container_name: h2-db
     ports:
-      - "9092:9092"   
+      - "9092:9092"
     volumes:
       - h2-data:/opt/h2-data
     healthcheck:
@@ -20,7 +20,7 @@ services:
 
   web:
     build:
-      context: ../part1/CA2-part2/rest
+      context: ../CA2-part2/rest
       dockerfile: dockerfile-multi-stage
     container_name: spring-web
     depends_on:
@@ -30,6 +30,7 @@ services:
       SPRING_DATASOURCE_URL: jdbc:h2:tcp://db:9092/./payrolldb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
       SPRING_DATASOURCE_USERNAME: sa
       SPRING_DATASOURCE_PASSWORD: ""
+      SPRING_JPA_HIBERNATE_DDL_AUTO: create
     ports:
       - "8080:8080"
 

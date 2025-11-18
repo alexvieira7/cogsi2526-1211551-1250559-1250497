@@ -17,8 +17,4 @@ VOLUME ["/opt/h2-data"]
 EXPOSE 9092
 
 # Start H2 in TCP server mode, storing data under /opt/h2-data
-CMD ["java", "-cp", "h2.jar", "org.h2.tools.Server",
-     "-tcp", "-tcpAllowOthers",
-     "-tcpPort", "9092",
-     "-baseDir", "/opt/h2-data"]
-
+CMD ["java", "-cp", "h2.jar", "org.h2.tools.Server", "-tcp", "-tcpAllowOthers", "-tcpPort", "9092", "-baseDir", "/opt/h2-data", "-ifNotExists"]
