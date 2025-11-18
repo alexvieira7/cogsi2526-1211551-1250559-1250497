@@ -424,11 +424,9 @@ The `CA5/part2/db/Dockerfile` builds a small image with **eclipse-temurin:17-jre
 
 ![alt text](image/29.png)
 
-Key points:
+The Dockerfile shown above builds a lightweight H2 database container using the eclipse-temurin:17-jre base image. It installs the necessary tools, downloads the H2 database JAR directly from Maven Central, and prepares a dedicated working directory under /opt/h2. This directory is later exposed as a Docker volume so that all database files are stored persistently outside the container.
 
-* Uses **TCP server mode** so other containers can connect (`-tcp` / `-tcpAllowOthers` / `-tcpPort 9092`).
-* Stores all database files under `/opt/h2-data`, which is mounted as a **Docker volume**.
-* The `-ifNotExists` flag allows the remote Spring application to create the `payrolldb` database on first connection.
+The final command starts the H2 server in TCP mode, listening on port 9092 and allowing external connections from other containers. By specifying the base directory as /opt/h2-data and including the -ifNotExists option, the container ensures that the required database files are created automatically the first time the Spring application connects.
 
 ---
 
@@ -440,22 +438,9 @@ The `CA5/part2/docker-compose.yml` defines two services and one named volume:
 
 ### Important details
 
-* **Two services**: `db` (H2) and `web` (Spring Boot).
-* The `db` service:
+The docker-compose.yml file defines two services that work together: the db service, which runs the H2 database, and the web service, which runs the Spring Boot application. The database container is built from the Dockerfile located in part2/db, exposes port 9092, and mounts the named volume h2-data so that all database files persist outside the container. It also includes a health check using nc to ensure that the H2 TCP server is fully reachable before allowing other services to start.
 
-  * builds from `part2/db/Dockerfile`
-  * exposes port **9092**
-  * mounts the named volume `h2-data:/opt/h2-data`
-  * has a **healthcheck** using `nc -z localhost 9092`
-* The `web` service:
-
-  * builds the API using the **multi-stage Dockerfile** (`dockerfile-multi-stage`)
-  * depends on `db` being **healthy** before starting
-  * uses environment variables to configure the Spring `DataSource`
-  * sets `SPRING_JPA_HIBERNATE_DDL_AUTO=create` so that Hibernate creates the tables and sequences in the new H2 database
-  * exposes port **8080** for HTTP access
-
-Because both services are in the same Compose file, they automatically share the default internal network, so the Spring app connects to the database using the hostname `db`.
+The web service uses the multi-stage Dockerfile from the REST project to build and run the API. It depends on the database being marked as healthy, ensuring that the backend only starts once the H2 server is ready to accept connections. The Spring datasource configuration is passed through environment variables, allowing the application to connect to the database via the internal hostname db. Hibernate is configured to create the required tables automatically, and port 8080 is exposed so the API can be accessed from outside Docker. Because both services are defined in the same Compose file, they share Docker’s default internal network, enabling smooth communication between the web app and the database without additional networking setup.
 
 ---
 
