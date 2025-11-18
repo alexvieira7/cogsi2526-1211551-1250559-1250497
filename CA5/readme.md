@@ -395,6 +395,112 @@ This part of CA5 demonstrates different Dockerization techniques for a Spring Bo
 
 ---
 
+# CA5 Part 2 – Multi-Container Orchestration with Docker Compose
+
+## Overview
+
+In Part 2, the goal is to deploy the Spring Boot REST API (from CA2-part2) together with an external **H2 database server**, using **two separate containers** orchestrated by **Docker Compose**:
+
+- `h2-db` – H2 database running in TCP server mode  
+- `spring-web` – Spring Boot REST API that connects remotely to the H2 server
+
+Both containers share a Docker network (created automatically by Compose) and the database uses a **named volume** to persist data.
+
+---
+
+## Project Structure (Part 2)
+
+![alt text](image/28.png)
+
+The Spring project reused in this part is:
+
+```text
+CA5/CA2-part2/rest
+```
+
+which already contains the `dockerfile-multi-stage` used in Part 1 (version 3).
+
+---
+
+## H2 Database Dockerfile
+
+The `CA5/part2/db/Dockerfile` builds a small image with **eclipse-temurin:17-jre** and downloads H2 2.2.224 directly from Maven Central:
+
+![alt text](image/29.png)
+
+Key points:
+
+* Uses **TCP server mode** so other containers can connect (`-tcp` / `-tcpAllowOthers` / `-tcpPort 9092`).
+* Stores all database files under `/opt/h2-data`, which is mounted as a **Docker volume**.
+* The `-ifNotExists` flag allows the remote Spring application to create the `payrolldb` database on first connection.
+
+---
+
+## docker-compose.yml: Web + DB
+
+The `CA5/part2/docker-compose.yml` defines two services and one named volume:
+
+![alt text](image/30.png)
+
+### Important details
+
+* **Two services**: `db` (H2) and `web` (Spring Boot).
+* The `db` service:
+
+  * builds from `part2/db/Dockerfile`
+  * exposes port **9092**
+  * mounts the named volume `h2-data:/opt/h2-data`
+  * has a **healthcheck** using `nc -z localhost 9092`
+* The `web` service:
+
+  * builds the API using the **multi-stage Dockerfile** (`dockerfile-multi-stage`)
+  * depends on `db` being **healthy** before starting
+  * uses environment variables to configure the Spring `DataSource`
+  * sets `SPRING_JPA_HIBERNATE_DDL_AUTO=create` so that Hibernate creates the tables and sequences in the new H2 database
+  * exposes port **8080** for HTTP access
+
+Because both services are in the same Compose file, they automatically share the default internal network, so the Spring app connects to the database using the hostname `db`.
+
+---
+
+## Running the Multi-Container Environment
+
+From the `CA5/part2` directory:
+
+![alt text](image/31.png)
+
+
+![alt text](image/32.png)
+
+Example `docker compose ps` output:
+
+
+To see the logs:
+
+![alt text](image/34.png)
+
+The `web` logs show that the application successfully connects to H2 and preloads two demo employees:
+
+![alt text](image/33.png)
+
+---
+
+## Testing the REST API
+
+With both containers running, the API is available at:
+
+```text
+http://localhost:8080/employees
+```
+
+This confirms that:
+
+* the **Spring Boot application** is running in its own container (`spring-web`);
+* it connects to the **H2 server** running in another container (`h2-db`);
+* the schema was created automatically and the initial data was inserted.
+
+---
+
 # Alternative Tool: LXD - Part 1
 
 This document describes the alternative approach to containerization using **LXD** instead of Docker, as required by the CA5 project.  
