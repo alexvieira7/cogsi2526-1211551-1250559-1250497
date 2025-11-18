@@ -226,9 +226,13 @@ The graphical window appeared, allowing:
 
 # Additional Server Test (without GUI)
 
+To further verify that the server was running correctly inside the Docker container, an additional test was performed from a separate terminal. By running the command nc localhost 59001, a manual connection was opened to the server’s exposed port. The server immediately responded with the expected prompt (SUBMITNAME), and after sending a username, it accepted the input, confirming that the connection was successfully established.
+
 To confirm the server was listening:
 
 ![8.png](image/8.png)
+
+This behaviour is also reflected in the Docker container’s output, where the server logs show that a new user has joined and the message sent from the external terminal is received correctly.
 
 ![9.png](image/9.png)
 
