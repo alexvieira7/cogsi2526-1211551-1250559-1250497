@@ -187,13 +187,9 @@ Within the `CA5/part1/` folder, we executed the command below:
 
 ![3.png](image/3.png)
 
+The option -f rest/Dockerfile.v1 tells Docker that the Dockerfile is located inside the rest/ directory. The app parameter sets the build context, which makes Docker copy the Java project into the container during the build process.
 
-Explanation:
-
-* `-f rest/Dockerfile.v1` → tells Docker that the Dockerfile is inside `rest/`
-* `app` → sets the **context**, so Docker copies the Java project into the container
-
-The image built successfully:
+The image below shows that it built successfully:
 
 ![4.png](image/4.png)
 
