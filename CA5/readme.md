@@ -201,11 +201,7 @@ Command:
 
 ![5.png](image/5.png)
 
-This confirms:
-
-* the container starts correctly
-* the server runs automatically
-* the port is exposed and mapped properly
+After executing the command, Docker starts the container, launches the chat server automatically, and displays the message “The chat server is running...” in the terminal. This confirms that the container initialized correctly, the server started as expected, and the port mapping (59001:59001) is properly configured, allowing the server to be accessed from the host machine. Overall, it demonstrates that the Docker image was built correctly and that the application is functioning as intended inside the container.
 
 ---
 
