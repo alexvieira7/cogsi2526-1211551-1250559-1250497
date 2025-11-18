@@ -468,8 +468,6 @@ From the `CA5/part2` directory:
 
 ![alt text](image/32.png)
 
-Example `docker compose ps` output:
-
 
 To see the logs:
 
