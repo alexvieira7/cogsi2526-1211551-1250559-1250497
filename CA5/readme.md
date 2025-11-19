@@ -653,3 +653,149 @@ curl http://<rest-app-IP>:8080/employees
 
 ![15.png](image/15.png)
 
+---
+# Alternative Tool: LXD - Part 2
+
+Esta parte demonstra a mesma solução do Docker Compose, mas recorrendo a **contentores LXD** separados:
+
+- `rest-db` – servidor H2 em modo TCP
+- `rest-web` – aplicação Spring Boot (Payroll API)
+
+A aplicação expõe o endpoint:
+
+`http://<IP-rest-web>:8080/employees`
+
+---
+
+## 1. Topologia LXD
+
+Foram criados os seguintes contentores:
+
+- `rest-db` – base de dados H2 em modo servidor TCP (porta 9092)
+- `rest-web` – aplicação Spring Boot
+- Outros contentores de apoio (`chat-app`, `rest-app`), não usados nesta parte.
+
+O comando usado para listar os contentores foi:
+
+```bash
+lxc list
+````
+
+![16.png](image/16.png)
+
+---
+
+## 2. Configuração do contentor `rest-db` (H2 TCP Server)
+
+Dentro do contentor `rest-db`:
+
+```bash
+lxc exec rest-db -- bash
+
+apt update
+apt install -y openjdk-17-jre-headless wget
+
+mkdir -p /opt/h2 /root/logs
+wget -q -O /opt/h2.jar \
+  https://repo1.maven.org/maven2/com/h2database/h2/2.2.224/h2-2.2.224.jar
+```
+
+Arranque do servidor H2 em modo TCP, acessível a partir de outros contentores:
+
+```bash
+nohup java -cp /opt/h2.jar org.h2.tools.Server \
+  -tcp -tcpAllowOthers -tcpPort 9092 \
+  -baseDir /opt/h2 \
+  -ifNotExists \
+  > /root/logs/h2.log 2>&1 &
+```
+
+Validação do serviço:
+
+```bash
+ss -ltnp | grep 9092
+# Esperado: java a escutar em *:9092
+```
+
+Criação/abertura da base de dados `payrolldb`:
+
+```bash
+java -cp /opt/h2.jar org.h2.tools.Shell \
+  -url "jdbc:h2:tcp://localhost:9092/./payrolldb" \
+  -user sa
+# Aparece o prompt: sql>
+quit;
+```
+
+---
+
+## 3. Configuração do contentor `rest-web` (Spring Boot)
+
+Dentro do contentor `rest-web`:
+
+```bash
+lxc exec rest-web -- bash
+
+apt update
+apt install -y openjdk-17-jre-headless git
+```
+
+Na pasta do projeto:
+
+```bash
+cd /root/repo/cogsi2526-1211551-1250559-1250497/CA2/CA2-part2/rest
+./gradlew build
+```
+
+Foi criado o ficheiro `src/main/resources/application.properties` para configurar a ligação ao H2 (versão análoga ao Docker):
+
+```properties
+spring.datasource.url=jdbc:h2:tcp://db:9092/./payrolldb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+spring.datasource.username=sa
+spring.datasource.password=
+spring.jpa.hibernate.ddl-auto=create
+spring.jpa.database-platform=org.hibernate.dialect.H2Dialect
+```
+
+![17.png](image/17.png)
+
+> Nota: Na execução real com LXD, a `spring.datasource.url` foi passada por variável de ambiente, apontando para o IP do contentor `rest-db` (ex.: `10.7.121.70`).
+
+Arranque da aplicação (exemplo usando variáveis de ambiente):
+
+```bash
+SPRING_DATASOURCE_URL="jdbc:h2:tcp://10.7.121.70:9092/./payrolldb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE" \
+SPRING_DATASOURCE_USERNAME="sa" \
+SPRING_DATASOURCE_PASSWORD="" \
+SPRING_JPA_HIBERNATE_DDL_AUTO="create" \
+java -jar build/libs/rest-0.0.1-SNAPSHOT.jar
+```
+
+O Spring Boot inicia o Tomcat na porta **8080** do contentor `rest-web`.
+
+---
+
+## 4. Teste do endpoint `/employees`
+
+A partir do host, foi testado o endpoint exposto pelo contentor `rest-web`:
+
+```bash
+curl http://10.7.121.82:8080/employees
+```
+
+Resposta obtida (resumo):
+
+* Lista de funcionários inicial (ex.: **Bilbo Baggins**, **Frodo Baggins**) devolvida pela API.
+
+![18.png](image/18.png)
+
+---
+
+## 5. Conclusão
+
+A Parte 2 demonstra que:
+
+* É possível replicar a solução do Docker Compose usando LXD;
+* A base de dados H2 corre num contentor dedicado (`rest-db`) em modo TCP;
+* A aplicação Spring Boot (`rest-web`) comunica com o H2 através da rede interna LXD, expondo a API REST em `8080`;
+* Os testes com `curl` confirmam o funcionamento correto do endpoint `/employees` e a criação inicial de dados na base de dados `payrolldb`.
