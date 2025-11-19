@@ -681,7 +681,7 @@ O comando usado para listar os contentores foi:
 lxc list
 ````
 
-![16.png](image/16.png)
+![35.png](image/35.png)
 
 ---
 
@@ -757,7 +757,7 @@ spring.jpa.hibernate.ddl-auto=create
 spring.jpa.database-platform=org.hibernate.dialect.H2Dialect
 ```
 
-![17.png](image/17.png)
+![36.png](image/36.png)
 
 > Nota: Na execução real com LXD, a `spring.datasource.url` foi passada por variável de ambiente, apontando para o IP do contentor `rest-db` (ex.: `10.7.121.70`).
 
@@ -787,7 +787,7 @@ Resposta obtida (resumo):
 
 * Lista de funcionários inicial (ex.: **Bilbo Baggins**, **Frodo Baggins**) devolvida pela API.
 
-![18.png](image/18.png)
+![37.png](image/37.png)
 
 ---
 
