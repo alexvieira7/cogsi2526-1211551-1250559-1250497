@@ -799,3 +799,13 @@ Part 2 demonstrates that:
 * The H2 database runs in a dedicated container (`rest-db`) in TCP server mode;
 * The Spring Boot application (`rest-web`) communicates with H2 through the internal LXD network, exposing the REST API on port `8080`;
 * The tests with `curl` confirm the correct operation of the `/employees` endpoint and the initial creation of data in the `payrolldb` database.
+
+---
+
+# Self-Assessment of Contributions
+
+| Membro | ID | Contribuição (%) |
+|---------|----|------------------|
+| Sofia Marques | 1250559 | 33.3% |
+| Alexandre Vieira | 1211551 | 33.3% |
+| Bárbara Silva | 1250497 | 33.3% |
