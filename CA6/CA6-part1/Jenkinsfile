@@ -51,22 +51,23 @@ pipeline {
         stage('Deploy') {
             steps {
                 script {
+
                     def artifact = sh(
-                        script: "ls CA6/CA6-part1/spring-example/build/libs/*.jar",
+                        script: "ls CA6/CA6-part1/spring-example/build/libs/*SNAPSHOT.jar | grep -v plain",
                         returnStdout: true
                     ).trim()
 
                     echo "Artifact encontrado: ${artifact}"
 
-                    def onlyName = artifact.replace("CA6/CA6-part1/spring-example/build/libs/", "")
-                    def artifact_url = "${env.BUILD_URL}artifact/CA6/CA6-part1/spring-example/build/libs/${onlyName}"
+                    def artifact_name = artifact.split('/').last()
+                    def artifact_url = "${env.BUILD_URL}artifact/CA6/CA6-part1/spring-example/build/libs/${artifact_name}"
 
                     echo "Artifact URL: ${artifact_url}"
 
                     sh """
-                    wsl ansible-playbook CA6/CA6-part1/ansible/deploy-green.yml \
-                    -i CA6/CA6-part1/inventory.ini \
-                    --extra-vars "artifact_url=${artifact_url}"
+                    ansible-playbook CA6/CA6-part1/ansible/deploy-green.yml \
+                      -i CA6/CA6-part1/inventory.ini \
+                      --extra-vars "artifact_url=${artifact_url}"
                     """
                 }
             }
@@ -74,7 +75,7 @@ pipeline {
 
         stage('Verify Deployment') {
             steps {
-                sh "wsl CA6/CA6-part1/scripts/healthcheck.sh"
+                sh "bash CA6/CA6-part1/scripts/healthcheck.sh"
             }
         }
     }
