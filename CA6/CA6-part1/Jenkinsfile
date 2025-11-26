@@ -13,8 +13,8 @@ pipeline {
         stage('Assemble') {
             steps {
                 dir('spring-example') {
-                    sh 'chmod +x ./gradlew || true'
-                    sh './gradlew clean build -x test || gradle clean build -x test'
+                    sh 'chmod +x gradlew || true'
+                    sh './gradlew clean build -x test'
                 }
             }
         }
@@ -22,7 +22,7 @@ pipeline {
         stage('Test') {
             steps {
                 dir('spring-example') {
-                    sh './gradlew test || gradle test'
+                    sh './gradlew test'
                     junit 'build/test-results/test/*.xml'
                 }
             }
@@ -51,10 +51,17 @@ pipeline {
         stage('Deploy') {
             steps {
                 script {
-                    def artifact = sh(script: "ls spring-example/build/libs/*.jar", returnStdout: true).trim()
+                    def artifact = sh(
+                        script: "ls spring-example/build/libs/*.jar",
+                        returnStdout: true
+                    ).trim()
+
                     echo "Artifact encontrado: ${artifact}"
 
-                    def artifact_url = "${env.BUILD_URL}artifact/" + artifact.replaceFirst('spring-example/', '')
+                    def onlyName = artifact.replace("spring-example/build/libs/", "")
+                    def artifact_url = "${env.BUILD_URL}artifact/spring-example/build/libs/${onlyName}"
+
+                    echo "Artifact URL: ${artifact_url}"
 
                     sh """
                     wsl ansible-playbook ansible/deploy-green.yml \
