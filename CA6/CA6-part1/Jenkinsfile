@@ -13,7 +13,8 @@ pipeline {
         stage('Assemble') {
             steps {
                 dir('spring-example') {
-                    sh './gradlew clean build -x test'
+                    sh 'chmod +x ./gradlew || true'
+                    sh './gradlew clean build -x test || gradle clean build -x test'
                 }
             }
         }
@@ -21,7 +22,7 @@ pipeline {
         stage('Test') {
             steps {
                 dir('spring-example') {
-                    sh './gradlew test'
+                    sh './gradlew test || gradle test'
                     junit 'build/test-results/test/*.xml'
                 }
             }
@@ -50,11 +51,7 @@ pipeline {
         stage('Deploy') {
             steps {
                 script {
-                    def artifact = sh(
-                        script: "ls spring-example/build/libs/*.jar",
-                        returnStdout: true
-                    ).trim()
-
+                    def artifact = sh(script: "ls spring-example/build/libs/*.jar", returnStdout: true).trim()
                     echo "Artifact encontrado: ${artifact}"
 
                     def artifact_url = "${env.BUILD_URL}artifact/" + artifact.replaceFirst('spring-example/', '')
@@ -73,19 +70,14 @@ pipeline {
                 sh "wsl ./scripts/healthcheck.sh"
             }
         }
-
     }
 
     post {
         success {
-            sh """
-            git tag -a stable-v${env.BUILD_NUMBER} -m 'Stable build'
-            git push origin stable-v${env.BUILD_NUMBER}
-            """
-            echo "Pipeline finished successfully"
+            echo 'Pipeline succeeded'
         }
         failure {
-            echo "Pipeline failed"
+            echo 'Pipeline failed'
         }
     }
 }
