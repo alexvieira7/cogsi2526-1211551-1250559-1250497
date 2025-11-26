@@ -1,0 +1,24 @@
+- hosts: green
+  become: yes
+  vars:
+    rollback_url: "{{ rollback_url }}"
+
+  tasks:
+
+    - name: Stop app
+      systemd:
+        name: myapp
+        state: stopped
+      ignore_errors: yes
+
+    - name: Download rollback artifact
+      get_url:
+        url: "{{ rollback_url }}"
+        dest: /opt/myapp/app.jar
+        mode: '0755'
+
+    - name: Start service
+      systemd:
+        name: myapp
+        state: started
+        enabled: yes
