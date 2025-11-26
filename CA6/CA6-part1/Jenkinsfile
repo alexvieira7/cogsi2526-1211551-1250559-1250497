@@ -22,8 +22,8 @@ pipeline {
         stage('Test') {
             steps {
                 dir('CA6/CA6-part1/spring-example') {
-                    sh './gradlew test'
-                    junit 'build/test-results/test/*.xml'
+                    sh './gradlew integrationTest'
+                    junit 'build/test-results/integrationTest/*.xml'
                 }
             }
         }
