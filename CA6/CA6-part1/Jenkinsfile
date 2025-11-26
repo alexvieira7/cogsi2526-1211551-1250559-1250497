@@ -12,7 +12,7 @@ pipeline {
 
         stage('Assemble') {
             steps {
-                dir('spring-example') {
+                dir('CA6/CA6-part1/spring-example') {
                     sh 'chmod +x gradlew || true'
                     sh './gradlew clean build -x test'
                 }
@@ -21,7 +21,7 @@ pipeline {
 
         stage('Test') {
             steps {
-                dir('spring-example') {
+                dir('CA6/CA6-part1/spring-example') {
                     sh './gradlew test'
                     junit 'build/test-results/test/*.xml'
                 }
@@ -30,7 +30,7 @@ pipeline {
 
         stage('Archive') {
             steps {
-                archiveArtifacts artifacts: 'spring-example/build/libs/*.jar', fingerprint: true
+                archiveArtifacts artifacts: 'CA6/CA6-part1/spring-example/build/libs/*.jar', fingerprint: true
             }
         }
 
@@ -52,20 +52,20 @@ pipeline {
             steps {
                 script {
                     def artifact = sh(
-                        script: "ls spring-example/build/libs/*.jar",
+                        script: "ls CA6/CA6-part1/spring-example/build/libs/*.jar",
                         returnStdout: true
                     ).trim()
 
                     echo "Artifact encontrado: ${artifact}"
 
-                    def onlyName = artifact.replace("spring-example/build/libs/", "")
-                    def artifact_url = "${env.BUILD_URL}artifact/spring-example/build/libs/${onlyName}"
+                    def onlyName = artifact.replace("CA6/CA6-part1/spring-example/build/libs/", "")
+                    def artifact_url = "${env.BUILD_URL}artifact/CA6/CA6-part1/spring-example/build/libs/${onlyName}"
 
                     echo "Artifact URL: ${artifact_url}"
 
                     sh """
-                    wsl ansible-playbook ansible/deploy-green.yml \
-                    -i inventory.ini \
+                    wsl ansible-playbook CA6/CA6-part1/ansible/deploy-green.yml \
+                    -i CA6/CA6-part1/inventory.ini \
                     --extra-vars "artifact_url=${artifact_url}"
                     """
                 }
@@ -74,7 +74,7 @@ pipeline {
 
         stage('Verify Deployment') {
             steps {
-                sh "wsl ./scripts/healthcheck.sh"
+                sh "wsl CA6/CA6-part1/scripts/healthcheck.sh"
             }
         }
     }
