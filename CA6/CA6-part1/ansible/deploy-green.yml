@@ -1,0 +1,44 @@
+- hosts: green
+  become: yes
+
+  vars:
+    artifact_url: "{{ artifact_url }}"
+
+  tasks:
+
+    - name: Stop current service
+      systemd:
+        name: myapp
+        state: stopped
+      ignore_errors: yes
+
+    - name: Ensure deployment directory exists
+      file:
+        path: /opt/myapp
+        state: directory
+        mode: '0755'
+
+    - name: Download artifact from Jenkins
+      get_url:
+        url: "{{ artifact_url }}"
+        dest: /opt/myapp/app.jar
+        mode: '0755'
+
+    - name: Reload systemd
+      systemd:
+        daemon_reload: yes
+
+    - name: Start service
+      systemd:
+        name: myapp
+        state: started
+        enabled: yes
+
+    - name: Wait for application to start
+      uri:
+        url: http://localhost:8080/actuator/health
+        status_code: 200
+      register: healthcheck
+      retries: 10
+      delay: 3
+      until: healthcheck.status == 200
