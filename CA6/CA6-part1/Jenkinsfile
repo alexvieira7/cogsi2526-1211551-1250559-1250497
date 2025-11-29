@@ -3,7 +3,6 @@ pipeline {
     agent any
 
     stages {
-
         stage('Checkout') {
             steps {
                 checkout scm
@@ -65,22 +64,22 @@ pipeline {
 
                     echo "Artifact encontrado: ${artifact}"
 
-                    def onlyName = artifact.replace("CA6/CA6-part1/spring-example/build/libs/", "")
+                    def artifactName = artifact.replace("CA6/CA6-part1/spring-example/build/libs/", "")
 
                     def jenkins_ip = "192.168.56.1"
 
                     def artifact_url = 
-                        "http://${jenkins_ip}:8080/job/${env.JOB_NAME}/${env.BUILD_NUMBER}/artifact/CA6/CA6-part1/spring-example/build/libs/${onlyName}"
+                        "http://${jenkins_ip}:8080/job/${env.JOB_NAME}/${env.BUILD_NUMBER}/artifact/CA6/CA6-part1/spring-example/build/libs/${artifactName}"
 
                     echo "Artifact URL: ${artifact_url}"
 
-                   sh """
-ansible-playbook CA6/CA6-part1/ansible/deploy-green.yml \
-    -i CA6/CA6-part1/inventory.ini \
-    -e ansible_ssh_common_args='-o StrictHostKeyChecking=no' \
-    --extra-vars "artifact_url=${artifact_url}"
-"""
-
+                    // Executar o Ansible
+                    sh """
+                    ansible-playbook CA6/CA6-part1/ansible/deploy-green.yml \
+                        -i CA6/CA6-part1/inventory.ini \
+                        -e "ansible_ssh_common_args='-o StrictHostKeyChecking=no'" \
+                        --extra-vars "artifact_url=${artifact_url}"
+                    """
                 }
             }
         }
@@ -91,6 +90,7 @@ ansible-playbook CA6/CA6-part1/ansible/deploy-green.yml \
             }
         }
     }
+
 
     post {
         success {
