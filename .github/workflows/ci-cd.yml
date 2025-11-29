@@ -2,7 +2,7 @@ name: CA6 Part1 CI/CD (GitHub Actions)
 
 on:
   push:
-    branches: [ development ]
+    branches: [ CA6-part1 ]
 
 jobs:
   build-test:
@@ -19,12 +19,12 @@ jobs:
           java-version: '17'
 
       - name: Assemble (Gradle build)
-        working-directory: CA6/application
+        working-directory: CA6/spring-example
         run: |
           ./gradlew clean build
 
       - name: Test
-        working-directory: CA6/application
+        working-directory: CA6/spring-example
         run: |
           ./gradlew test
 
@@ -32,4 +32,43 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: app-jar
-          path: CA6/application/build/libs/*.jar
+          path: CA6/spring-example/build/libs/*.jar
+
+  deploy:
+    needs: build-test
+    runs-on: self-hosted
+    environment: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: app-jar
+          path: CA6/spring-example/build/libs
+
+      - name: Normalize JAR name
+        working-directory: CA6/spring-example/build/libs
+        run: |
+          JAR=$(ls spring-example-*.jar | head -n 1)
+          cp "$JAR" app.jar
+
+      - name: Deploy to GREEN with Ansible
+        working-directory: CA6/alternativa
+        run: |
+          ansible-playbook -i ansible/inventory.ini ansible/deploy.yml --limit green
+
+      - name: Health check from runner
+        run: |
+          curl -f http://192.168.56.11:8080/employees
+
+      - name: Create stable tag
+        if: success()
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          VERSION="stable-v${{ github.run_number }}"
+          git tag "$VERSION"
+          git push origin "$VERSION"
