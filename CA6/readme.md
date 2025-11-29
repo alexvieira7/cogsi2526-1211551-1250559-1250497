@@ -12,7 +12,6 @@ CA6 is divided into **two main parts and one alternative**:
 
 * **Alternative:** Design and analysis of an equivalent CI/CD solution using another automation tool, comparing it with Jenkins.
 
-
 ---
 
 # **Comparative Analysis: CI/CD Orchestration Tools (Jenkins and Alternatives)**
