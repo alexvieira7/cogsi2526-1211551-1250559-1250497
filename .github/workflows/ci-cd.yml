@@ -4,6 +4,9 @@ on:
   push:
     branches: [ CA6-part1 ]
 
+permissions:
+  contents: write
+
 jobs:
   build-test:
     runs-on: self-hosted
