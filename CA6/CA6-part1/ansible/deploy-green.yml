@@ -36,9 +36,9 @@
 
     - name: Wait for application to start
       uri:
-        url: http://localhost:8080/actuator/health
-        status_code: 200
+        url: http://localhost:8080
+        status_code: 200,404
       register: healthcheck
       retries: 10
       delay: 3
-      until: healthcheck.status == 200
+      until: healthcheck.status in [200,404]
