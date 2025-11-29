@@ -74,12 +74,13 @@ pipeline {
 
                     echo "Artifact URL: ${artifact_url}"
 
-                    sh """
-                    ansible-playbook CA6/CA6-part1/ansible/deploy-green.yml \
-                        -i CA6/CA6-part1/inventory.ini \
-                        -e ansible_ssh_common_args='-o StrictHostKeyChecking=no'\
-                        --extra-vars "artifact_url=${artifact_url}"
-                    """
+                   sh """
+ansible-playbook CA6/CA6-part1/ansible/deploy-green.yml \
+    -i CA6/CA6-part1/inventory.ini \
+    -e ansible_ssh_common_args='-o StrictHostKeyChecking=no' \
+    --extra-vars "artifact_url=${artifact_url}"
+"""
+
                 }
             }
         }
