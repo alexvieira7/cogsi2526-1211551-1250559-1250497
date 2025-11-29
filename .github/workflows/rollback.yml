@@ -1,0 +1,32 @@
+name: CA6 Part1 Rollback (GitHub Actions)
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Stable tag (ex: stable-v5)'
+        required: true
+
+jobs:
+  rollback:
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+
+      - name: Build jar for selected tag (estratégia simples)
+        run: |
+          git checkout ${{ github.event.inputs.tag }}
+          cd CA6/application
+          ./gradlew clean build
+          cd ..
+          mkdir -p artifacts
+          cp application/build/libs/*.jar artifacts/app-${{ github.event.inputs.tag }}.jar
+
+      - name: Run rollback playbook
+        working-directory: CA6
+        run: |
+          ansible-playbook -i ansible/inventory.ini ansible/rollback.yml \
+            --extra-vars "tag=${{ github.event.inputs.tag }}"

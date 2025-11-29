@@ -1,0 +1,35 @@
+name: CA6 Part1 CI/CD (GitHub Actions)
+
+on:
+  push:
+    branches: [ development ]
+
+jobs:
+  build-test:
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Assemble (Gradle build)
+        working-directory: CA6/application
+        run: |
+          ./gradlew clean build
+
+      - name: Test
+        working-directory: CA6/application
+        run: |
+          ./gradlew test
+
+      - name: Archive artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-jar
+          path: CA6/application/build/libs/*.jar
