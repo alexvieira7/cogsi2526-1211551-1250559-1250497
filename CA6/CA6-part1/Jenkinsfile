@@ -49,30 +49,34 @@ pipeline {
         }
 
         stage('Deploy') {
-    steps {
-        script {
-            def artifact = sh(
-                script: "ls CA6/CA6-part1/spring-example/build/libs/*.jar | grep -v plain",
-                returnStdout: true
-            ).trim()
+            steps {
+                script {
 
-            echo "Artifact encontrado: ${artifact}"
+                    def artifact = sh(
+                        script: "ls CA6/CA6-part1/spring-example/build/libs/*.jar | grep -v plain",
+                        returnStdout: true
+                    ).trim()
 
-            def onlyName = artifact.replace("CA6/CA6-part1/spring-example/build/libs/", "")
-            def artifact_url = "${env.BUILD_URL}artifact/CA6/CA6-part1/spring-example/build/libs/${onlyName}"
+                    echo "Artifact encontrado: ${artifact}"
 
-            echo "Artifact URL: ${artifact_url}"
+                    def onlyName = artifact.replace("CA6/CA6-part1/spring-example/build/libs/", "")
 
-            sh """
-            ansible-playbook CA6/CA6-part1/ansible/deploy-green.yml \
-              -i CA6/CA6-part1/inventory.ini \
-              --ssh-common-args='-o StrictHostKeyChecking=no' \
-              --extra-vars "artifact_url=${artifact_url}"
-            """
+                    def jenkins_ip = "192.168.56.1"
+
+                    def artifact_url =
+                        "http://${jenkins_ip}:8080/job/${env.JOB_NAME}/${env.BUILD_NUMBER}/artifact/CA6/CA6-part1/spring-example/build/libs/${onlyName}"
+
+                    echo "Artifact URL: ${artifact_url}"
+
+                    sh """
+                    ansible-playbook CA6/CA6-part1/ansible/deploy-green.yml \
+                        -i CA6/CA6-part1/inventory.ini \
+                        --ssh-common-args='-o StrictHostKeyChecking=no' \
+                        --extra-vars "artifact_url=${artifact_url}"
+                    """
+                }
+            }
         }
-    }
-}
-
 
         stage('Verify Deployment') {
             steps {
