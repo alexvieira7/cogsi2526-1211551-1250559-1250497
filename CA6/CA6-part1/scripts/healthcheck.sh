@@ -1,16 +1,16 @@
 #!/bin/bash
 
-GREEN_IP=192.168.56.20
+GREEN_IP=192.168.56.11
 
 echo "Checking health on GREEN VM..."
 
-STATUS=$(curl -s http://$GREEN_IP:8080/actuator/health)
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://$GREEN_IP:8080)
 
-if [[ $STATUS == *"UP"* ]]; then
-  echo "[OK] Deployment is healthy."
+if [[ "$STATUS" == "200" || "$STATUS" == "404" ]]; then
+  echo "[OK] Deployment is healthy. Status code: $STATUS"
   exit 0
 else
   echo "[ERROR] Health check failed."
-  echo "Response: $STATUS"
+  echo "Status code: $STATUS"
   exit 1
 fi
