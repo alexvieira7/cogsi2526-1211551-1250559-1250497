@@ -17,13 +17,18 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Build jar for selected tag (estratégia simples)
+        working-directory: CA6/spring-example
         run: |
           git checkout ${{ github.event.inputs.tag }}
-          cd CA6/spring-example
           ./gradlew clean build
-          cd ..
+
+      - name: Preparar artefacto de rollback
+        working-directory: CA6
+        run: |
           mkdir -p alternativa/artifacts
           cp spring-example/build/libs/*.jar alternativa/artifacts/app-${{ github.event.inputs.tag }}.jar
 
