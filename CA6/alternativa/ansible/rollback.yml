@@ -25,6 +25,12 @@
         state: restarted
         enabled: yes
 
+    - name: Esperar que a app arranque após rollback
+      wait_for:
+        host: localhost
+        port: 8080
+        timeout: 60
+
     - name: Health check após rollback
       uri:
         url: "http://localhost:8080/employees"
