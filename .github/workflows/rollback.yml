@@ -30,10 +30,11 @@ jobs:
           ./gradlew clean build
 
       - name: Prepare rollback artifact
-        working-directory: CA6
+        working-directory: CA6/spring-example/build/libs
         run: |
-          mkdir -p alternativa/artifacts
-          cp spring-example/build/libs/*.jar alternativa/artifacts/app-${{ github.event.inputs.tag }}.jar
+          JAR=$(ls spring-example-*.jar | head -n 1)
+          mkdir -p ../../alternativa/artifacts
+          cp "$JAR" ../../alternativa/artifacts/app-${{ github.event.inputs.tag }}.jar
 
       - name: Run rollback playbook
         working-directory: CA6/alternativa
