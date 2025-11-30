@@ -57,6 +57,18 @@ jobs:
         working-directory: CA6/spring-example
         run: ./gradlew clean build
 
+      - name: Normalize JAR name for Docker
+        working-directory: CA6/spring-example
+        run: |
+          echo "Contents of build/libs:"
+          ls -l build/libs
+
+          # escolhe o JAR executável (ignora o '-plain.jar')
+          JAR=$(ls build/libs/*SNAPSHOT.jar | grep -v plain | head -n 1)
+          echo "Using JAR: $JAR"
+
+          cp "$JAR" build/libs/app.jar
+
       - name: Login to Docker Hub
         run: echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
 
