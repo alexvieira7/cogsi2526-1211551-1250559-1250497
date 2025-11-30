@@ -1,0 +1,82 @@
+name: CA6 Part2 CI/CD (GitHub Actions)
+
+on:
+  push:
+    branches: [ CA6-part2 ]
+
+env:
+  DOCKER_USER: ${{ secrets.DOCKER_USER }}
+  DOCKER_PASS: ${{ secrets.DOCKER_PASS }}
+  DOCKER_IMAGE: ${{ secrets.DOCKER_IMAGE }}
+
+jobs:
+  unit-tests:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Run unit tests
+        working-directory: CA6/spring-example
+        run: ./gradlew test
+
+  integration-tests:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Run integration tests
+        working-directory: CA6/spring-example
+        run: ./gradlew test
+
+  docker-build-push:
+    runs-on: self-hosted
+    needs: [ unit-tests, integration-tests ]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Build JAR
+        working-directory: CA6/spring-example
+        run: ./gradlew clean build
+
+      - name: Login to Docker Hub
+        run: echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+
+      - name: Build Docker image
+        working-directory: CA6/spring-example
+        run: |
+          docker build \
+            -t $DOCKER_USER/$DOCKER_IMAGE:latest \
+            -f ../alternativa-part2/docker/Dockerfile .
+
+      - name: Push Docker image
+        run: docker push $DOCKER_USER/$DOCKER_IMAGE:latest
+
+  deploy:
+    runs-on: self-hosted
+    needs: docker-build-push
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy container on production VM
+        working-directory: CA6/alternativa-part2
+        run: ansible-playbook -i ansible/inventory.ini ansible/deploy.yml
