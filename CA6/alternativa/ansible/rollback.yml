@@ -8,9 +8,10 @@
 
   tasks:
     - name: Parar serviço atual
-      systemd:
+      ansible.builtin.service:
         name: app
         state: stopped
+    ignore_errors: true
 
     - name: Copiar artefacto estável
       copy:
