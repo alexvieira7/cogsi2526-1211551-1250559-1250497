@@ -30,11 +30,23 @@ jobs:
           ./gradlew clean build
 
       - name: Prepare rollback artifact
-        working-directory: CA6/spring-example/build/libs
         run: |
-          JAR=$(ls spring-example-*.jar | head -n 1)
-          mkdir -p ../../alternativa/artifacts
-          cp "$JAR" ../../alternativa/artifacts/app-${{ github.event.inputs.tag }}.jar
+          echo "PWD: $(pwd)"
+          echo "Conteúdo de CA6/spring-example/build/libs:"
+          ls -l CA6/spring-example/build/libs || echo "NADA ENCONTRADO"
+
+          # Encontrar o primeiro spring-example-*.jar
+          JAR=$(find CA6/spring-example/build/libs -maxdepth 1 -name 'spring-example-*.jar' | head -n 1)
+
+          echo "JAR encontrado: $JAR"
+
+          if [ -z "$JAR" ]; then
+            echo "ERRO: nenhum JAR encontrado em CA6/spring-example/build/libs"
+            exit 1
+          fi
+
+          mkdir -p CA6/alternativa/artifacts
+          cp "$JAR" "CA6/alternativa/artifacts/app-${{ github.event.inputs.tag }}.jar"
 
       - name: Run rollback playbook
         working-directory: CA6/alternativa
