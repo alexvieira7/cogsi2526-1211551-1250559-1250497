@@ -52,10 +52,16 @@ jobs:
           name: app-jar
           path: CA6/spring-example/build/libs
 
-      - name: Normalize JAR name
+      - name: Normalize JAR name (usar JAR executável)
         working-directory: CA6/spring-example/build/libs
         run: |
-          JAR=$(ls spring-example-*.jar | head -n 1)
+          echo "Conteúdo da pasta de JARs:"
+          ls -l
+
+          # pega o JAR *sem* '-plain'
+          JAR=$(ls spring-example-*-SNAPSHOT.jar | grep -v plain | head -n 1)
+
+          echo "Usando JAR: $JAR"
           cp "$JAR" app.jar
 
       - name: Deploy to GREEN with Ansible
@@ -67,11 +73,17 @@ jobs:
         run: |
           curl -f http://192.168.56.11:8080/employees
 
-      - name: Create stable tag
+      - name: Create stable tag and save artifact for rollback
         if: success()
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
+
           VERSION="stable-v${{ github.run_number }}"
+          echo "Criando tag $VERSION"
           git tag "$VERSION"
           git push origin "$VERSION"
+
+          echo "A guardar artefacto para rollback como app-${VERSION}.jar"
+          mkdir -p CA6/alternativa/artifacts
+          cp CA6/spring-example/build/libs/app.jar CA6/alternativa/artifacts/app-${VERSION}.jar

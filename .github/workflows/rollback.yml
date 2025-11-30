@@ -20,14 +20,15 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Preparar artefacto de rollback
+      - name: Verificar artefacto de rollback
         run: |
-          mkdir -p CA6/alternativa/artifacts
-
-          echo "A copiar artefacto estável: app-${{ github.event.inputs.tag }}.jar"
-
-          cp CA6/alternativa/artifacts/app-${{ github.event.inputs.tag }}.jar \
-             CA6/alternativa/app.jar
+          ls -l CA6/alternativa/artifacts || true
+          FILE="CA6/alternativa/artifacts/app-${{ github.event.inputs.tag }}.jar"
+          if [ ! -f "$FILE" ]; then
+            echo "ERRO: Artefacto $FILE não existe."
+            exit 1
+          fi
+          echo "Artefacto encontrado: $FILE"
 
       - name: Executar playbook de rollback
         working-directory: CA6/alternativa
