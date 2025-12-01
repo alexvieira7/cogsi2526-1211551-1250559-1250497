@@ -38,3 +38,7 @@
       uri:
         url: "http://localhost:8080/employees"
         status_code: 200
+      register: health_result
+      retries: 10
+      delay: 3
+      until: health_result.status == 200
