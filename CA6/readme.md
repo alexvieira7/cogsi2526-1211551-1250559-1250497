@@ -150,6 +150,360 @@ Instead of servers/agents, Tekton uses **Kubernetes CRDs** to run tasks, pipelin
 
 ---
 
+# CA6 – Part 1
+
+## CI/CD Pipeline with Jenkins, Vagrant, and Ansible
+
+This technical report documents the analysis, design, and full implementation of **Part 1** of CA6.
+The goal is to build a CI/CD pipeline that:
+
+* Builds the Spring Boot Gradle application
+* Runs tests and archives artifacts
+* Requests manual approval
+* Deploys the application to a *green* virtual machine
+* Supports automated rollback
+* Sets up infrastructure automatically using **Vagrant + Ansible**
+
+---
+
+# Project Structure (Actual Files)
+
+Based on your repository:
+
+![alt text](image/40.png)
+
+---
+
+# Architecture Overview
+
+Part 1 uses a **Blue/Green Deployment** strategy with two VMs:
+
+| VM    | IP            | Purpose                                     |
+| ----- | ------------- | ------------------------------------------- |
+| blue  | 192.168.56.10 | Hosts the initial application version       |
+| green | 192.168.56.11 | Target for deployments triggered by Jenkins |
+
+These machines are defined in the Ansible inventory:
+
+![alt text](image/41.png)
+
+---
+
+# Infrastructure Automation – Vagrant & Ansible
+
+## Virtual Machine Setup (Vagrantfile)
+
+The infrastructure for this assignment is composed of two virtual machines—**blue** and **green**—created and managed using Vagrant.
+Both machines run *Ubuntu Focal 64* and share the same hardware configuration, but each one uses a different static private IP address to support the Blue/Green deployment strategy.
+
+### Vagrantfile used:
+
+![alt text](image/50.png)
+
+## Base provisioning (Java + service setup)
+
+The `provision.yml` playbook prepares both virtual machines (blue and green) with everything required to run the Spring Boot application. It performs three essential actions:
+
+1. **System Preparation** – Updates the APT package index to ensure all dependencies are retrieved from the latest repositories.
+2. **Java Installation** – Installs **OpenJDK 17**, the version required to run the Spring Boot application.
+3. **Application Environment Setup** – Creates the `/opt/myapp` directory, where the JAR file will be deployed, and configures a **systemd service** (`myapp.service`) responsible for starting, stopping, and automatically restarting the application.
+
+![alt text](image/42.png)
+
+Using a systemd unit provides reliable lifecycle management, ensures the application runs on boot, and allows Jenkins deployments to control the service consistently.
+
+Overall, this playbook guarantees that both VMs are fully provisioned and ready to receive new application versions through the CI/CD pipeline.
+
+---
+
+## Jenkins Pipeline (Jenkinsfile)
+
+The CI/CD pipeline is implemented using a scripted Jenkinsfile stored in the repository.
+Its purpose is to automate the compilation, testing, packaging, approval, deployment, and verification of the Spring Boot application into the *green* virtual machine.
+
+The pipeline is composed of the following stages:
+
+1. **Checkout** – Retrieves the most recent version of the code from the repository using Jenkins’ built-in SCM.
+
+2. **Assemble** – Compiles the application using Gradle inside *spring-example*, producing the JAR artifact. Tests are skipped in this stage to keep compilation fast.
+
+3. **Test** – Executes the integration tests (`integrationTest`) and publishes the results using the `junit` plugin, enabling Jenkins to detect failures.
+
+4. **Archive** – Stores the generated JAR file in Jenkins as an artifact, enabling version traceability and future rollback.
+
+5. **Deploy to Production?** – Introduces a manual approval step to decide whether the new version should be deployed to the *green* VM. The pipeline stops if the user selects **no**.
+
+6. **Deploy** – Automatically builds the artifact download URL and invokes the Ansible playbook `deploy-green.yml` to deploy the new version onto the green machine.
+   It passes the artifact URL and inventory file as parameters.
+
+7. **Verify Deployment** – Runs the `healthcheck.sh` script to ensure the application is running correctly after deployment.
+
+```yaml
+pipeline {
+
+    agent any
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Assemble') {
+            steps {
+                dir('CA6/CA6-part1/spring-example') {
+                    sh 'chmod +x gradlew || true'
+                    sh './gradlew clean build -x test'
+                }
+            }
+        }
+
+        stage('Test') {
+            steps {
+                dir('CA6/CA6-part1/spring-example') {
+                    sh './gradlew integrationTest'
+                    junit 'build/test-results/integrationTest/*.xml'
+                }
+            }
+        }
+
+        stage('Archive') {
+            steps {
+                archiveArtifacts artifacts: 'CA6/CA6-part1/spring-example/build/libs/*.jar', fingerprint: true
+            }
+        }
+
+        stage('Deploy to Production?') {
+            steps {
+                script {
+                    def approval = input(
+                        message: "Deploy to GREEN VM?",
+                        parameters: [
+                            choice(
+                                name: 'confirm',
+                                choices: "no\nyes",
+                                description: 'Approve deployment?'
+                            )
+                        ]
+                    )
+                    if (approval == "no") {
+                        error "Deployment aborted by user"
+                    }
+                }
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                script {
+
+                    def artifact = sh(
+                        script: "ls CA6/CA6-part1/spring-example/build/libs/*.jar | grep -v plain",
+                        returnStdout: true
+                    ).trim()
+
+                    echo "Artifact encontrado: ${artifact}"
+
+                    def artifactName = artifact.replace("CA6/CA6-part1/spring-example/build/libs/", "")
+
+                    def jenkins_ip = "192.168.56.1"
+
+                    def artifact_url = 
+                        "http://${jenkins_ip}:8080/job/${env.JOB_NAME}/${env.BUILD_NUMBER}/artifact/CA6/CA6-part1/spring-example/build/libs/${artifactName}"
+
+                    echo "Artifact URL: ${artifact_url}"
+
+                    // Executar o Ansible
+                    sh """
+                    ansible-playbook CA6/CA6-part1/ansible/deploy-green.yml \
+                        -i CA6/CA6-part1/inventory.ini \
+                        -e "ansible_ssh_common_args='-o StrictHostKeyChecking=no'" \
+                        --extra-vars "artifact_url=${artifact_url}"
+                    """
+                }
+            }
+        }
+
+        stage('Verify Deployment') {
+            steps {
+                sh "bash CA6/CA6-part1/scripts/healthcheck.sh"
+            }
+        }
+    }
+
+
+    post {
+        success {
+            echo 'Pipeline succeeded'
+        }
+        failure {
+            echo 'Pipeline failed'
+        }
+    }
+}
+```
+
+Additionally, in the `post` section, the pipeline prints a final success or failure message depending on the result of the entire process.
+
+This Jenkinsfile encapsulates the full CI/CD flow required for Part 1 of the assignment, including build automation, artifact handling, environment provisioning, deployment, and post-deployment validation.
+
+---
+
+# Deployment with Ansible
+
+## Deployment with Ansible (`deploy-green.yml`)
+
+The deployment process for the *green* virtual machine is fully automated through the `deploy-green.yml` playbook. It receives the `artifact_url` from Jenkins and performs the necessary steps to safely replace the running application with the newly built version.
+
+### **What the playbook does**
+
+1. **Stops the currently running service** (`myapp`) to ensure the old JAR file is not in use.
+2. **Ensures the deployment directory exists** (`/opt/myapp`), making the playbook idempotent.
+3. **Downloads the new artifact from Jenkins** and places it as `/opt/myapp/app.jar`.
+4. **Reloads systemd**, making sure it recognizes any updated service definitions.
+5. **Starts the application service**, ensuring it automatically restarts on failures.
+6. **Performs an HTTP healthcheck** on `http://localhost:8080` to confirm the application started successfully.
+
+This logic is implemented as follows:
+
+![alt text](image/43.png)
+
+---
+
+### **Why this design?**
+
+* **Dynamic deployment from Jenkins**: Passing `artifact_url` ensures Jenkins controls exactly which version is deployed, enabling reproducibility and traceability.
+* **Safe and idempotent**: The playbook can be executed multiple times without breaking the environment.
+* **Robust startup validation**: Accepting HTTP codes **200 or 404** ensures the application is running even if routes are not fully initialized yet.
+* **Service-based deployment**: Using systemd provides reliability, restarts on failure, and simplifies lifecycle management.
+
+---
+
+## ✔ Healthcheck Script (`healthcheck.sh`)
+
+After the deployment stage, the pipeline validates whether the application running on the **green** VM has started successfully.
+This verification is performed by the script `healthcheck.sh`, which sends an HTTP request to the application and checks the returned status code.
+
+The script performs the following steps:
+
+1. Targets the green VM at `192.168.56.11`.
+2. Sends a silent `curl` request to `http://GREEN_IP:8080`.
+3. Extracts only the HTTP status code returned by the application.
+4. Considers the deployment **healthy** if the status code is either **200** (OK) or **404** (application running but endpoint not found).
+5. Fails the pipeline otherwise.
+
+This behavior ensures that the Spring Boot server is running even if the REST endpoints are not fully initialized yet.
+
+### Script used in the repository:
+
+![alt text](image/44.png)
+
+### Why this approach?
+
+* **Reliable detection**: `curl` ensures the service is answering requests.
+* **Flexible validation**: Accepting `200` and `404` avoids false negatives during early Spring Boot initialization.
+* **Integration with Jenkins**: A non-zero exit code automatically marks the deployment as failed, enabling rollback if needed.
+
+---
+
+## Rollback Mechanism (`rollback.yml`)
+
+The rollback process provides a safe recovery path whenever a deployment fails or the post-deployment healthcheck detects an issue.
+Jenkins triggers this operation by supplying a `rollback_url`, which points to a previously tagged **stable** artifact stored in Jenkins.
+
+The `rollback.yml` playbook performs three simple and reliable steps:
+
+1. **Stop the running service** to ensure the faulty version is no longer active.
+2. **Download the stable artifact** from Jenkins and overwrite the current `app.jar` in `/opt/myapp`.
+3. **Restart the application service**, restoring the last known good version.
+
+### Playbook used in the project:
+
+![alt text](image/45.png)
+
+### Why this design?
+
+* **Fast recovery**: The rollback only replaces the JAR and restarts the service — no re-provisioning required.
+* **Guaranteed stability**: Artifacts tagged as *stable* ensure only verified versions are restored.
+* **Pipeline integration**: Jenkins supplies the correct artifact URL automatically, making the rollback deterministic and repeatable.
+
+This mechanism ensures reliable and consistent recovery from faulty deployments, which is an essential requirement for modern CI/CD pipelines.
+
+---
+
+# Step-by-Step Reproduction Guide
+
+Below is the complete step-by-step process to reproduce and validate the CI/CD workflow, including screenshots proving that the pipeline, deployment, and application all work correctly.
+
+---
+
+## 1. Start the virtual machines
+
+```
+vagrant up
+```
+
+---
+
+## 2. Provision both blue and green environments
+
+```
+ansible-playbook -i ansible/inventory.ini ansible/provision.yml
+```
+
+---
+
+## 3. Run the Jenkins pipeline
+
+Jenkins executes:
+
+**Checkout → Build → Test → Archive → Deploy → Verify Deployment**
+
+![alt text](image/46.png)
+
+---
+
+## 4. Artifact generated and archived in Jenkins
+
+The build produces two JAR files, and Jenkins archives the correct deployable artifact:
+
+![alt text](image/47.png)
+
+This confirms that the application was compiled correctly and the JAR is available for deployment and rollback.
+
+---
+
+## 5. Verify the deployment on the GREEN VM
+
+After deploying, you can confirm that the Spring Boot service is running by checking the HTTP response:
+
+![alt text](image/48.png)
+
+This matches the healthcheck logic used in the pipeline.
+
+---
+
+## 6. Confirm artifact download inside the VM
+
+You can also verify that the GREEN VM successfully downloaded the artifact from Jenkins by inspecting the HTTP headers:
+
+![alt text](image/49.png)
+
+The `200 OK`, `application/java-archive`, and `Content-Length` confirm the JAR was downloaded correctly.
+
+---
+
+## 7. If needed, perform a rollback
+
+```
+ansible-playbook -i ansible/inventory.ini ansible/rollback.yml
+```
+
+The rollback playbook replaces the current JAR with a stable version previously stored in Jenkins.
+
+---
+
 # Alternative with GitHub Actions (Blue/Green + Rollback) - Part 1
 
 ## Objective
