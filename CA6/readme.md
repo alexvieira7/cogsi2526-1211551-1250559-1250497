@@ -475,6 +475,266 @@ Thanks to the artifacts stored on the self-hosted runner, **rollback does not re
 
 # Alternative with GitHub Actions - Part 2
 
+GitHub Actions + Docker + Vagrant + Ansible**
+
+## **1. Objective**
+
+This alternative replaces Jenkins (from the official CA6-Part2 instructions) with a pure **GitHub Actions CI/CD pipeline** using:
+
+* **Docker** (containerization of the Spring Boot app)
+* **Docker Hub** (image registry)
+* **Vagrant + VirtualBox** (production VM)
+* **Ansible** (container deployment automation)
+
+The workflow automatically:
+
+1. Runs unit + integration tests
+2. Builds a JAR
+3. Builds and pushes a Docker image
+4. Deploys and runs the container inside a Vagrant VM
+5. Performs an automated health check
+
+---
+
+## **2. Project Structure (Part 2)**
+
+![alt text](image/38.png)
+
+---
+
+## **Infrastructure Setup (Vagrant)**
+
+The file:
+
+```
+CA6/alternativa-part2/Vagrantfile
+```
+
+![alt text](image/37.png)
+
+Creates a VM named **production**, with:
+
+* IP: `192.168.57.10`
+* Ubuntu 20.04
+* automatic provisioning (apt update)
+
+### Start the VM
+
+```bash
+vagrant up
+```
+
+Check status:
+
+![alt text](image/36.png)
+
+SSH inside:
+
+```bash
+vagrant ssh production
+```
+
+---
+
+## **Ansible Configuration**
+
+### **Inventory file**
+
+```
+CA6/alternativa-part2/ansible/inventory.ini
+```
+
+Example:
+
+![alt text](image/35.png)
+
+### **Deployment Playbook (`deploy.yml`)**
+
+This playbook:
+
+1. Installs Docker
+2. Logs in to Docker Hub
+3. Pulls the latest image
+4. Stops existing container (if any)
+5. Runs the new container on port 8080
+6. Waits for the service to start
+7. Performs a health check
+
+**File:** `CA6/alternativa-part2/ansible/deploy.yml`
+
+![alt text](image/34.png)
+
+---
+
+## **GitHub Secrets Required**
+
+Go to:
+
+**GitHub → Repository → Settings → Secrets and variables → Actions**
+
+Create:
+
+| Secret name    | Description                           |
+| -------------- | ------------------------------------- |
+| `DOCKER_USER`  | Your Docker Hub username              |
+| `DOCKER_PASS`  | Docker Hub password or access token   |
+| `DOCKER_IMAGE` | Repository name (ex: `cogsi-ca6-app`) |
+
+---
+
+## **Dockerfile**
+
+Located at:
+
+```
+CA6/spring-example/Dockerfile
+```
+
+Used to build the container:
+
+![alt text](image/33.png)
+
+---
+
+## **GitHub Actions Workflow (CI/CD)**
+
+File:
+
+```
+.github/workflows/ci-cd-part2.yml
+```
+
+The pipeline has **4 jobs**:
+
+### ✔ 1. unit-tests
+
+Runs standard Gradle tests.
+
+### ✔ 2. integration-tests
+
+Runs integration tests (same command as above, optional separation).
+
+### ✔ 3. docker-build-push
+
+Builds the app + Docker image and pushes to Docker Hub.
+
+### ✔ 4. deploy
+
+Runs Ansible to deploy the new container into the Vagrant VM.
+
+---
+
+### **Full CI/CD workflow**
+
+```yaml
+name: CA6 Part2 CI/CD (GitHub Actions)
+
+on:
+  push:
+    branches: [ CA6-part2 ]
+
+env:
+  DOCKER_USER: ${{ secrets.DOCKER_USER }}
+  DOCKER_PASS: ${{ secrets.DOCKER_PASS }}
+  DOCKER_IMAGE: ${{ secrets.DOCKER_IMAGE }}
+
+jobs:
+  unit-tests:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - run: ./gradlew test
+        working-directory: CA6/spring-example
+
+  integration-tests:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - run: ./gradlew test
+        working-directory: CA6/spring-example
+
+  docker-build-push:
+    runs-on: self-hosted
+    needs: [unit-tests, integration-tests]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - run: ./gradlew clean build
+        working-directory: CA6/spring-example
+
+      - name: Normalize JAR name
+        working-directory: CA6/spring-example
+        run: |
+          JAR=$(ls build/libs/*SNAPSHOT.jar | grep -v plain | head -n 1)
+          cp "$JAR" build/libs/app.jar
+
+      - name: Login Docker Hub
+        run: echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+
+      - name: Build Docker image
+        working-directory: CA6/spring-example
+        run: |
+          docker build \
+            -t $DOCKER_USER/$DOCKER_IMAGE:latest \
+            -f ../alternativa-part2/docker/Dockerfile .
+
+      - name: Push Docker image
+        run: docker push $DOCKER_USER/$DOCKER_IMAGE:latest
+
+  deploy:
+    runs-on: self-hosted
+    needs: docker-build-push
+    steps:
+      - uses: actions/checkout@v4
+      - run: ansible-playbook -i ansible/inventory.ini ansible/deploy.yml
+        working-directory: CA6/alternativa-part2
+```
+
+---
+
+## **How to Run the Entire Pipeline**
+
+### **Start self-hosted runner**
+
+![alt text](image/30.png)
+
+![alt text](image/31.png)
+
+### **Ensure the VM is running**
+
+![alt text](image/32.png)
+
+### **Push to the CA6-part2 branch**
+
+```bash
+git add .
+git commit -m "CA6 Part2 working CI/CD"
+git push origin CA6-part2
+```
+
+### **GitHub Actions triggers automatically**
+
+Check in:
+
+**GitHub → Actions → CA6 Part2 CI/CD**
+
+All steps should become green ✔
+The app becomes available at:
+
+![alt text](image/29.png)
+
 ---
 
 # Self-Assessment of Contributions
