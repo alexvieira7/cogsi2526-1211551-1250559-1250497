@@ -733,6 +733,8 @@ Check in:
 All steps should become green ✔
 The app becomes available at:
 
+![alt text](image/39.png)
+
 ![alt text](image/29.png)
 
 ---
