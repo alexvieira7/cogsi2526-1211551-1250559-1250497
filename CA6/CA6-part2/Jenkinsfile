@@ -21,7 +21,7 @@ pipeline {
 
         stage('Assemble') {
             steps {
-                dir('CA6-part2/spring-example') {
+                dir('spring-example') {
                     sh 'chmod +x gradlew || true'
                     sh './gradlew clean build'
                 }
@@ -32,7 +32,7 @@ pipeline {
             parallel {
                 stage('Unit Tests') {
                     steps {
-                        dir('CA6-part2/spring-example') {
+                        dir('spring-example') {
                             sh './gradlew test'
                             junit 'build/test-results/test/*.xml'
                         }
@@ -40,7 +40,7 @@ pipeline {
                 }
                 stage('Integration Tests') {
                     steps {
-                        dir('CA6-part2/spring-example') {
+                        dir('spring-example') {
                             sh './gradlew integrationTest'
                             junit 'build/test-results/integrationTest/*.xml'
                         }
@@ -55,7 +55,6 @@ pipeline {
                     IMAGE_TAG = "build-${env.BUILD_NUMBER}"
 
                     sh """
-                        cd CA6-part2
                         docker build -t ${DOCKER_USER}/spring-rest-app:${IMAGE_TAG} .
                         docker tag ${DOCKER_USER}/spring-rest-app:${IMAGE_TAG} ${DOCKER_USER}/spring-rest-app:latest
                     """
@@ -80,12 +79,10 @@ pipeline {
                 branch 'main'
             }
             steps {
-                script {
-                    sh """
-                        ansible-playbook CA6-part2/ansible/deploy-production.yml \
-                        --extra-vars "docker_user=${DOCKER_USER} docker_pass=${DOCKER_PASS}"
-                    """
-                }
+                sh """
+                    ansible-playbook ansible/deploy-production.yml \
+                    --extra-vars "docker_user=${DOCKER_USER} docker_pass=${DOCKER_PASS}"
+                """
             }
         }
     }
