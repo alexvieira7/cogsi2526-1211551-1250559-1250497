@@ -1,0 +1,101 @@
+pipeline {
+
+    agent any
+
+    triggers {
+        githubPush()   
+    }
+
+    environment {
+        DOCKER_USER = credentials('dockerhub-username')
+        DOCKER_PASS = credentials('dockerhub-password')
+    }
+
+    stages {
+
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Assemble') {
+            steps {
+                dir('CA6-part2/spring-example') {
+                    sh 'chmod +x gradlew || true'
+                    sh './gradlew clean build'
+                }
+            }
+        }
+
+        stage('Parallel Tests') {
+            parallel {
+                stage('Unit Tests') {
+                    steps {
+                        dir('CA6-part2/spring-example') {
+                            sh './gradlew test'
+                            junit 'build/test-results/test/*.xml'
+                        }
+                    }
+                }
+                stage('Integration Tests') {
+                    steps {
+                        dir('CA6-part2/spring-example') {
+                            sh './gradlew integrationTest'
+                            junit 'build/test-results/integrationTest/*.xml'
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    IMAGE_TAG = "build-${env.BUILD_NUMBER}"
+
+                    sh """
+                        cd CA6-part2
+                        docker build -t ${DOCKER_USER}/spring-rest-app:${IMAGE_TAG} .
+                        docker tag ${DOCKER_USER}/spring-rest-app:${IMAGE_TAG} ${DOCKER_USER}/spring-rest-app:latest
+                    """
+                }
+            }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                script {
+                    sh """
+                        echo ${DOCKER_PASS} | docker login -u ${DOCKER_USER} --password-stdin
+                        docker push ${DOCKER_USER}/spring-rest-app:${IMAGE_TAG}
+                        docker push ${DOCKER_USER}/spring-rest-app:latest
+                    """
+                }
+            }
+        }
+
+        stage('Deploy to Production') {
+            when {
+                branch 'main'
+            }
+            steps {
+                script {
+                    sh """
+                        ansible-playbook CA6-part2/ansible/deploy-production.yml \
+                        --extra-vars "docker_user=${DOCKER_USER} docker_pass=${DOCKER_PASS}"
+                    """
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "Pipeline concluída com sucesso!"
+        }
+        failure {
+            echo "Pipeline falhou!"
+        }
+    }
+}

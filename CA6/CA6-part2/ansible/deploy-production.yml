@@ -1,0 +1,42 @@
+---
+- hosts: production
+  become: yes
+
+  tasks:
+
+    - name: Instalar Docker (script)
+      script: scripts/install_docker.sh
+
+    - name: Login no DockerHub
+      docker_login:
+        username: "{{ docker_user }}"
+        password: "{{ docker_pass }}"
+
+    - name: Fazer pull da última imagem
+      docker_image:
+        name: "{{ docker_user }}/spring-rest-app:latest"
+        source: pull
+
+    - name: Parar container antigo
+      docker_container:
+        name: springapp
+        state: absent
+
+    - name: Executar container atualizado
+      docker_container:
+        name: springapp
+        image: "{{ docker_user }}/spring-rest-app:latest"
+        state: started
+        restart_policy: always
+        ports:
+          - "8080:8080"
+
+    - name: Health check (actuator)
+      uri:
+        url: http://localhost:8080/actuator/health
+        return_content: yes
+        status_code: 200
+      register: healthcheck
+
+    - debug:
+        msg: "Estado final da aplicação: {{ healthcheck.content }}"
