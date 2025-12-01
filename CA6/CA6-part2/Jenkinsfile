@@ -34,16 +34,16 @@ pipeline {
                     steps {
                         dir('CA6/CA6-part2/spring-example') {
                             sh './gradlew test'
-                            junit 'build/test-results/test/*.xml'
                         }
+                        junit 'CA6/CA6-part2/spring-example/build/test-results/test/**/*.xml'
                     }
                 }
                 stage('Integration Tests') {
                     steps {
                         dir('CA6/CA6-part2/spring-example') {
                             sh './gradlew integrationTest'
-                            junit 'build/test-results/integrationTest/*.xml'
                         }
+                        junit 'CA6/CA6-part2/spring-example/build/test-results/integrationTest/**/*.xml'
                     }
                 }
             }
