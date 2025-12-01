@@ -109,7 +109,7 @@ pipeline {
 
             emailext subject: "Jenkins - Build FALHOU (#${env.BUILD_NUMBER})",
                      body: "Ocorreu um erro durante a execução da pipeline.",
-                     to: "t1250559@isep.ipp.pt"
+                     to: "1250559@isep.ipp.pt"
         }
     }
 }
