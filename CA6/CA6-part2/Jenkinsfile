@@ -12,7 +12,8 @@ pipeline {
 
         stage('Checkout') {
             steps {
-                echo "Branch detectada: ${env.GIT_BRANCH}"
+                echo "BRANCH_NAME detectada: ${env.BRANCH_NAME}"
+                echo "GIT_BRANCH detectada: ${env.GIT_BRANCH}"
                 checkout scm
             }
         }
@@ -83,7 +84,7 @@ pipeline {
 
         stage('Deploy to Production') {
             when {
-                branch pattern: ".*CA6-part2", comparator: "REGEXP"
+                expression { env.BRANCH_NAME == "CA6-part2" }
             }
             steps {
                 script {
@@ -98,7 +99,7 @@ pipeline {
 
         stage('Health Check') {
             when {
-                branch pattern: ".*CA6-part2", comparator: "REGEXP"
+                expression { env.BRANCH_NAME == "CA6-part2" }
             }
             steps {
                 script {
