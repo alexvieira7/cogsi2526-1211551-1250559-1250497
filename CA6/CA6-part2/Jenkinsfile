@@ -82,7 +82,7 @@ pipeline {
 
         stage('Deploy to Production') {
             when {
-                branch 'main'
+                branch 'CA6-part2'
             }
             steps {
                 script {
