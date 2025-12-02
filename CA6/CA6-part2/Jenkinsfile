@@ -84,7 +84,7 @@ pipeline {
 
         stage('Deploy to Production') {
             when {
-                expression { env.BRANCH_NAME == "CA6-part2" }
+                expression { env.GIT_BRANCH?.contains("CA6-part2") }
             }
             steps {
                 script {
@@ -99,7 +99,7 @@ pipeline {
 
         stage('Health Check') {
             when {
-                expression { env.BRANCH_NAME == "CA6-part2" }
+                expression { env.GIT_BRANCH?.contains("CA6-part2") }
             }
             steps {
                 script {
