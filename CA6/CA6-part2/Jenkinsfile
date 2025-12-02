@@ -3,9 +3,9 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_USER = credentials('dockerhub-username')  
-        DOCKER_PASS = credentials('dockerhub-password')   
-        IMAGE_TAG = ""                                     
+        DOCKER_USER = credentials('dockerhub-username')
+        DOCKER_PASS = credentials('dockerhub-password')
+        IMAGE_TAG = ""
     }
 
     stages {
@@ -80,15 +80,30 @@ pipeline {
             }
         }
 
-        stage('Deploy') {
+        stage('Deploy to Production') {
             when {
                 branch 'main'
             }
             steps {
                 script {
                     sh """
-                        ansible-playbook -i ansible/hosts ansible/deploy.yml \
+                        ansible-playbook -i CA6/CA6-part2/ansible/inventory.ini \
+                        CA6/CA6-part2/ansible/deploy-production.yml \
                         --extra-vars "docker_user=${env.DOCKER_USER_USR} docker_pass=${env.DOCKER_USER_PSW}"
+                    """
+                }
+            }
+        }
+
+        stage('Health Check') {
+            when {
+                branch 'main'
+            }
+            steps {
+                script {
+                    sh """
+                        ansible-playbook -i CA6/CA6-part2/ansible/inventory.ini \
+                        CA6/CA6-part2/ansible/healthcheck.yml
                     """
                 }
             }
@@ -106,7 +121,6 @@ pipeline {
 
         failure {
             echo "Pipeline falhou!"
-
             emailext subject: "Jenkins - Build FALHOU (#${env.BUILD_NUMBER})",
                      body: "Ocorreu um erro durante a execução da pipeline.",
                      to: "1250559@isep.ipp.pt"
