@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.exemplo.IntegrationTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2025-11-26T16:45:53" hostname="user-System-Product-Name" time="0.012">
-  <properties/>
-  <testcase name="teste()" classname="com.exemplo.IntegrationTest" time="0.012"/>
-  <system-out><![CDATA[A executar testes
-]]></system-out>
-  <system-err><![CDATA[]]></system-err>
-</testsuite>
