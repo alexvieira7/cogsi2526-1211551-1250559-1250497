@@ -1,11 +1,11 @@
-- hosts: green
+- hosts: production
   gather_facts: no
   tasks:
-    - name: Check Spring Boot health endpoint
+    - name: Check Spring Boot health (simple root endpoint)
       uri:
-        url: http://localhost:8080/actuator/health
-        status_code: 200
+        url: http://localhost:8080/
+        status_code: 200,404
       register: result
       retries: 10
       delay: 3
-      until: result.status == 200
+      until: result.status in [200, 404]

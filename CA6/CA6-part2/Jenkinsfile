@@ -2,26 +2,25 @@ pipeline {
 
     agent any
 
-    triggers {
-        githubPush()   
-    }
-
     environment {
         DOCKER_USER = credentials('dockerhub-username')
         DOCKER_PASS = credentials('dockerhub-password')
+        IMAGE_TAG = ""
     }
 
     stages {
 
         stage('Checkout') {
             steps {
+                echo "BRANCH_NAME detectada: ${env.BRANCH_NAME}"
+                echo "GIT_BRANCH detectada: ${env.GIT_BRANCH}"
                 checkout scm
             }
         }
 
         stage('Assemble') {
             steps {
-                dir('CA6-part2/spring-example') {
+                dir('CA6/CA6-part2/spring-example') {
                     sh 'chmod +x gradlew || true'
                     sh './gradlew clean build'
                 }
@@ -30,19 +29,21 @@ pipeline {
 
         stage('Parallel Tests') {
             parallel {
+
                 stage('Unit Tests') {
                     steps {
-                        dir('CA6-part2/spring-example') {
+                        dir('CA6/CA6-part2/spring-example') {
                             sh './gradlew test'
-                            junit 'build/test-results/test/*.xml'
+                            junit 'build/test-results/test/**/*.xml'
                         }
                     }
                 }
+
                 stage('Integration Tests') {
                     steps {
-                        dir('CA6-part2/spring-example') {
+                        dir('CA6/CA6-part2/spring-example') {
                             sh './gradlew integrationTest'
-                            junit 'build/test-results/integrationTest/*.xml'
+                            junit 'build/test-results/integrationTest/**/*.xml'
                         }
                     }
                 }
@@ -52,14 +53,20 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    IMAGE_TAG = "build-${env.BUILD_NUMBER}"
+                    env.IMAGE_TAG = "build-${env.BUILD_NUMBER}"
 
                     sh """
-                        cd CA6-part2
-                        docker build -t ${DOCKER_USER}/spring-rest-app:${IMAGE_TAG} .
-                        docker tag ${DOCKER_USER}/spring-rest-app:${IMAGE_TAG} ${DOCKER_USER}/spring-rest-app:latest
+                        cd CA6/CA6-part2
+                        docker build -t ${env.DOCKER_USER_USR}/spring-rest-app:${env.IMAGE_TAG} .
+                        docker tag ${env.DOCKER_USER_USR}/spring-rest-app:${env.IMAGE_TAG} ${env.DOCKER_USER_USR}/spring-rest-app:latest
                     """
                 }
+            }
+        }
+
+        stage('Archive') {
+            steps {
+                archiveArtifacts artifacts: 'CA6/CA6-part2/Dockerfile', fingerprint: true
             }
         }
 
@@ -67,9 +74,9 @@ pipeline {
             steps {
                 script {
                     sh """
-                        echo ${DOCKER_PASS} | docker login -u ${DOCKER_USER} --password-stdin
-                        docker push ${DOCKER_USER}/spring-rest-app:${IMAGE_TAG}
-                        docker push ${DOCKER_USER}/spring-rest-app:latest
+                        echo "${env.DOCKER_USER_PSW}" | docker login -u "${env.DOCKER_USER_USR}" --password-stdin
+                        docker push ${env.DOCKER_USER_USR}/spring-rest-app:${env.IMAGE_TAG}
+                        docker push ${env.DOCKER_USER_USR}/spring-rest-app:latest
                     """
                 }
             }
@@ -77,13 +84,28 @@ pipeline {
 
         stage('Deploy to Production') {
             when {
-                branch 'main'
+                expression { env.GIT_BRANCH?.contains("CA6-part2") }
             }
             steps {
                 script {
                     sh """
-                        ansible-playbook CA6-part2/ansible/deploy-production.yml \
-                        --extra-vars "docker_user=${DOCKER_USER} docker_pass=${DOCKER_PASS}"
+                        ansible-playbook -i CA6/CA6-part2/ansible/inventory.ini \
+                        CA6/CA6-part2/ansible/deploy-production.yml \
+                        --extra-vars "docker_user=${env.DOCKER_USER_USR} docker_pass=${env.DOCKER_USER_PSW}"
+                    """
+                }
+            }
+        }
+
+        stage('Health Check') {
+            when {
+                expression { env.GIT_BRANCH?.contains("CA6-part2") }
+            }
+            steps {
+                script {
+                    sh """
+                        ansible-playbook -i CA6/CA6-part2/ansible/inventory.ini \
+                        CA6/CA6-part2/ansible/healthcheck.yml
                     """
                 }
             }
@@ -91,11 +113,19 @@ pipeline {
     }
 
     post {
+
         success {
             echo "Pipeline concluída com sucesso!"
+            emailext subject: "Jenkins - Build SUCESSO (#${env.BUILD_NUMBER})",
+                     body: "A pipeline da CA6-Part2 concluiu com sucesso.",
+                     to: "1250559@isep.ipp.pt"
         }
+
         failure {
             echo "Pipeline falhou!"
+            emailext subject: "Jenkins - Build FALHOU (#${env.BUILD_NUMBER})",
+                     body: "Ocorreu um erro durante a execução da pipeline.",
+                     to: "1250559@isep.ipp.pt"
         }
     }
 }

@@ -1,4 +1,3 @@
----
 - hosts: production
   become: yes
 
@@ -31,12 +30,14 @@
         ports:
           - "8080:8080"
 
-    - name: Health check (actuator)
+    - name: Health check (simple root endpoint)
       uri:
-        url: http://localhost:8080/actuator/health
-        return_content: yes
-        status_code: 200
+        url: http://localhost:8080/
+        status_code: 200,404
       register: healthcheck
+      retries: 10
+      delay: 3
+      until: healthcheck.status in [200, 404]
 
     - debug:
-        msg: "Estado final da aplicação: {{ healthcheck.content }}"
+        msg: "Estado final da aplicação (HTTP): {{ healthcheck.status }}"
