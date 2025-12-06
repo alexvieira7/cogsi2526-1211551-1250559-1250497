@@ -1,0 +1,44 @@
+- hosts: production
+  become: yes
+
+  vars:
+    docker_user: "{{ lookup('env', 'DOCKER_USER') }}"
+    docker_image: "{{ lookup('env', 'DOCKER_IMAGE') }}"
+
+  tasks:
+    - name: Install Docker
+      apt:
+        name: docker.io
+        state: present
+        update_cache: true
+
+    - name: Login to Docker Hub
+      shell: echo "{{ lookup('env','DOCKER_PASS') }}" | docker login -u "{{ docker_user }}" --password-stdin
+
+    - name: Pull latest Docker image
+      shell: docker pull {{ docker_user }}/{{ docker_image }}:latest
+
+    - name: Stop old container if exists
+      shell: docker rm -f app || true
+
+    - name: Run new container
+      shell: >
+        docker run -d
+        --name app
+        -p 8080:8080
+        {{ docker_user }}/{{ docker_image }}:latest
+
+    - name: Wait for app to start
+      wait_for:
+        host: localhost
+        port: 8080
+        timeout: 60
+
+    - name: Health check
+      uri:
+        url: "http://localhost:8080/employees"
+        status_code: 200
+      register: health_result
+      retries: 10
+      delay: 3
+      until: health_result.status == 200
