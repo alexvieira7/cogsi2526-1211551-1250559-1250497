@@ -1,0 +1,63 @@
+- hosts: all
+  become: yes
+
+  vars:
+    app_jar_source: "../application/build/libs/app.jar"
+    app_jar_dest: "/opt/app/app.jar"
+
+  tasks:
+    - name: Instalar dependências
+      apt:
+        name: openjdk-17-jre
+        state: present
+        update_cache: yes
+
+    - name: Criar diretório da app
+      file:
+        path: /opt/app
+        state: directory
+        mode: '0755'
+
+    - name: Copiar JAR para a VM
+      copy:
+        src: "../../spring-example/build/libs/spring-example-0.0.1-SNAPSHOT.jar"
+        dest: "{{ app_jar_dest }}"
+        mode: '0755'
+
+    - name: Criar service systemd
+      copy:
+        dest: /etc/systemd/system/app.service
+        content: |
+          [Unit]
+          Description=Spring App
+          After=network.target
+
+          [Service]
+          ExecStart=/usr/bin/java -jar {{ app_jar_dest }}
+          Restart=always
+          User=root
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Reload systemd
+      systemd:
+        daemon_reload: yes
+
+    - name: Enable and start service
+      systemd:
+        name: app
+        state: restarted
+        enabled: yes
+
+    # Health check básico
+    - name: Esperar que a app arranque
+      wait_for:
+        host: localhost
+        port: 8080
+        timeout: 60
+
+    - name: Health check HTTP
+      uri:
+        url: "http://localhost:8080/employees"
+        status_code: 200
