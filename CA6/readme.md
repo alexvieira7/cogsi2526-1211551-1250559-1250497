@@ -504,6 +504,305 @@ The rollback playbook replaces the current JAR with a stable version previously 
 
 ---
 
+# CA6 – Part 2
+
+### Infrastructure: production VM (Vagrant + Ansible)
+
+We created a dedicated production VM using Vagrant:
+
+- Vagrantfile in `CA6/CA6-part2/Vagrantfile`
+- VM name: `blue`
+- IP address: `192.168.56.10`
+
+The VM is provisioned with Ansible using the playbook:
+
+- `CA6/CA6-part2/ansible/deploy-production.yml`
+
+This playbook:
+1. Ensures **Docker** is installed on the VM  
+2. Logs in to **Docker Hub**  
+3. Pulls the latest image of the application  
+4. Stops and removes any existing container  
+5. Starts the new container exposing port `8080`  
+
+---
+
+### Jenkins setup and pipeline overview
+
+Jenkins runs on the host machine and uses a **multibranch pipeline** defined in `CA6/CA6-part2/Jenkinsfile`.
+
+- A **GitHub webhook** triggers the pipeline when a commit is pushed to the repository.
+- The pipeline only performs the **deploy** stage when the build is running on the `main` branch (using a `when { branch 'main' }` condition).
+
+The main stages are:
+
+1. `Checkout`  
+2. `Assemble`  
+3. `Parallel Tests` (unit + integration)  
+4. `Tag & Build Docker Image`  
+5. `Archive`  
+6. `Push Docker Image`  
+7. `Deploy to Production` (Ansible)  
+8. `Health Check` + notification (post actions)
+
+---
+
+### Stage: Checkout
+
+The **Checkout** stage pulls the latest source code from the repository:
+
+```
+stage('Checkout') {
+    steps {
+        checkout([
+          $class: 'GitSCM',
+          branches: [[name: '*/CA6-part2']],
+          userRemoteConfigs: [[
+            url: 'https://github.com/<user>/cogsi2526-1211551-1250559-1250497.git',
+            credentialsId: 'github-token'
+          ]]
+        ])
+    }
+}
+```
+
+Screenshot (Jenkins console – checkout):
+
+![img](image/51.png)
+
+---
+
+### Stage: Assemble (build Gradle project)
+
+The **Assemble** stage compiles the application and generates the JAR:
+
+```
+stage('Assemble') {
+    steps {
+        dir('CA6/CA6-part2/spring-example') {
+            sh 'chmod +x gradlew'
+            sh './gradlew clean build'
+        }
+    }
+}
+```
+
+Screenshot (Gradle build output):
+
+![img](image/52.png)
+
+---
+
+### Stage: Parallel Tests (unit + integration)
+
+To meet the requirement of parallel tests, we created a stage with two parallel branches:
+
+```
+stage('Parallel Tests') {
+    parallel {
+        stage('Unit Tests') {
+            steps {
+                dir('CA6/CA6-part2/spring-example') {
+                    sh './gradlew test'
+                }
+            }
+        }
+        stage('Integration Tests') {
+            steps {
+                dir('CA6/CA6-part2/spring-example') {
+                    sh './gradlew integrationTest'
+                }
+            }
+        }
+    }
+}
+```
+
+Screenshot (parallel unit + integration tests):
+
+![img](image/53.png)
+
+---
+
+### Stage: Tag & Build Docker Image
+
+After the tests pass, Jenkins builds the Docker image for the application.
+We tag the image using the Docker Hub namespace and a tag derived from the build/branch.
+
+```
+stage('Build Docker Image') {
+    steps {
+        dir('CA6/CA6-part2') {
+            script {
+                def imageTag = "latest"  // e.g. "main-${env.BUILD_NUMBER}"
+                sh "docker build -t sofiss13/spring-rest-app:${imageTag} ."
+            }
+        }
+    }
+}
+```
+
+Screenshot (Docker build in Jenkins):
+
+![img](image/54.png)
+
+---
+
+### Stage: Archive (Dockerfile and metadata)
+
+For traceability, the Dockerfile and metadata are archived in Jenkins:
+
+```
+stage('Archive') {
+    steps {
+        archiveArtifacts artifacts: 'CA6/CA6-part2/Dockerfile', fingerprint: true
+    }
+}
+```
+
+---
+
+### Stage: Push Docker Image to Docker Hub
+
+In this stage, Jenkins logs in to Docker Hub using stored credentials and pushes the image:
+
+```
+stage('Push Docker Image') {
+    steps {
+        withCredentials([string(credentialsId: 'DOCKER_USER_PSW', variable: 'DOCKER_PSW')]) {
+            sh """
+              echo ${DOCKER_PSW} | docker login -u sofiss13 --password-stdin
+              docker push sofiss13/spring-rest-app:latest
+            """
+        }
+    }
+}
+```
+
+Screenshot (docker login + push):
+
+![img](image/55.png)
+
+The result in Docker Hub:
+
+![img](image/56.png)
+
+---
+
+### Stage: Deploy to Production (Ansible)
+
+Deployment is only executed for the **main** branch.
+Jenkins calls the Ansible playbook that pulls the latest image and runs the container on the production VM:
+
+```
+stage('Deploy to Production') {
+    when {
+        branch 'main'
+    }
+    steps {
+        sh """
+          ansible-playbook \
+            -i CA6/CA6-part2/ansible/inventory.ini \
+            CA6/CA6-part2/ansible/deploy-production.yml \
+            --extra-vars "docker_user=sofiss13 docker_pass=${DOCKER_PSW}"
+        """
+    }
+}
+```
+
+Key tasks in `deploy-production.yml`:
+
+* Gather facts
+* Install Docker (if needed)
+* Login to Docker Hub
+* Pull the latest image `sofiss13/spring-rest-app:latest`
+* Stop/remove previous container
+* Run the new container exposing port `8080`
+
+Screenshot (Ansible deploy from Jenkins):
+
+![img](image/57.png)
+
+On the production VM we can confirm that the container is running:
+
+```
+docker ps
+```
+
+Screenshot:
+
+![img](image/58.png)
+
+And the application logs:
+
+```
+docker logs springapp
+```
+
+Screenshot:
+
+![img](image/59.png)
+
+---
+
+### Stage: Health Check and Deployment Verification
+
+After deployment, Jenkins triggers a **health check** via a dedicated Ansible playbook:
+
+```
+stage('Health Check') {
+    steps {
+        sh """
+          ansible-playbook \
+            -i CA6/CA6-part2/ansible/inventory.ini \
+            CA6/CA6-part2/ansible/healthcheck.yml
+        """
+    }
+}
+```
+
+The `healthcheck.yml` playbook performs an HTTP request to the application on the production VM (e.g. `http://192.168.56.10:8080/employees`) and expects a `200 OK`.
+
+Screenshot (Ansible health check):
+
+![img](image/60.png)
+
+We can also manually verify the `/employees` endpoint in the browser:
+
+![img](image/61.png)
+
+---
+
+### Post actions: Notification (Email)
+
+Finally, the pipeline sends an e-mail notification with the result of the execution:
+
+```
+post {
+    success {
+        echo 'Pipeline concluída com sucesso!'
+        emailext to: '1250559@isep.ipp.pt',
+                 subject: "Jenkins - Build SUCESSO (#${env.BUILD_NUMBER})",
+                 body: "A pipeline da CA6-Part2 concluiu com sucesso."
+    }
+    failure {
+        emailext to: '1250559@isep.ipp.pt',
+                 subject: "Jenkins - Build FALHOU (#${env.BUILD_NUMBER})",
+                 body: "A pipeline da CA6-Part2 falhou. Verifique a consola do Jenkins."
+    }
+}
+```
+
+Screenshot (email notification in inbox):
+
+![img](image/62.png)
+
+Screenshot (Jenkins console showing emailext call):
+
+![img](image/63.png)
+
+---
+
 # Alternative with GitHub Actions (Blue/Green + Rollback) - Part 1
 
 ## Objective
